@@ -1,11 +1,16 @@
 import path from 'node:path'
 import process from 'node:process'
 import type { Command } from 'commander'
+import { Box, Text } from 'ink'
+import type { ReactNode } from 'react'
 import { loadWelightConfig, resolveCodeTheme, resolveProxy, resolveWatermark } from '../config'
 import { installDom } from '../dom'
 import { readInput } from '../io'
+import { KeyValueList, Success, Title } from '../ink/components'
+import { executeCommand } from '../ink/runtime'
+import type { PublishResult } from '../publish'
 import { publishDraft } from '../publish'
-import { c, printKeyValues, ui } from '../ui'
+import { c, ui } from '../ui'
 
 interface PublishCliOptions {
   theme?: string
@@ -22,6 +27,23 @@ interface PublishCliOptions {
   fansCommentOnly?: boolean
   watermark?: boolean
   preview?: boolean
+}
+
+function View({ data }: { data: PublishResult }): ReactNode {
+  return (
+    <Box flexDirection="column">
+      <Success>草稿创建成功</Success>
+      <Box marginTop={1}>
+        <KeyValueList rows={[
+          [`标题`, data.title],
+          [`media_id`, data.mediaId],
+          [`正文图片`, `${data.uploadedContentImageCount}/${data.contentImageCount} 已上传`],
+          [`预览链接`, data.previewUrl || `未获取（可在公众号后台草稿箱查看）`],
+        ]}
+        />
+      </Box>
+    </Box>
+  )
 }
 
 export function registerPublish(program: Command): void {
@@ -60,39 +82,37 @@ export function registerPublish(program: Command): void {
       const markdown = await readInput(file)
       const baseDir = file === `-` ? process.cwd() : path.dirname(path.resolve(file))
 
-      try {
-        const result = await publishDraft(markdown, {
-          baseDir,
-          credentials: { appId, appSecret, proxy: resolveProxy(config, options.proxy) },
-          theme: options.theme ?? config.theme,
-          primaryColor: config.primaryColor,
-          fontFamily: config.fontFamily,
-          fontSize: config.fontSize,
-          customCSS: config.customCSS,
-          codeTheme: resolveCodeTheme(config, options.codeTheme),
-          title: options.title,
-          author: options.author,
-          digest: options.digest,
-          contentSourceUrl: options.sourceUrl,
-          cover: options.cover,
-          openComment: options.openComment,
-          fansCommentOnly: options.fansCommentOnly,
-          watermark: resolveWatermark(config, options.watermark),
-          preview: options.preview,
-          onLog: message => ui.info(message),
-        })
+      const run = async (): Promise<PublishResult> => publishDraft(markdown, {
+        baseDir,
+        credentials: { appId, appSecret, proxy: resolveProxy(config, options.proxy) },
+        theme: options.theme ?? config.theme,
+        primaryColor: config.primaryColor,
+        fontFamily: config.fontFamily,
+        fontSize: config.fontSize,
+        customCSS: config.customCSS,
+        codeTheme: resolveCodeTheme(config, options.codeTheme),
+        title: options.title,
+        author: options.author,
+        digest: options.digest,
+        contentSourceUrl: options.sourceUrl,
+        cover: options.cover,
+        openComment: options.openComment,
+        fansCommentOnly: options.fansCommentOnly,
+        watermark: resolveWatermark(config, options.watermark),
+        preview: options.preview,
+        onLog: message => process.stderr.write(`${c.dim(`· ${message}`)}\n`),
+      })
 
-        ui.title(`草稿创建成功`)
-        printKeyValues([
-          [`标题`, result.title],
-          [`media_id`, result.mediaId],
-          [`正文图片`, `${result.uploadedContentImageCount}/${result.contentImageCount} 已上传`],
-          [`预览链接`, result.previewUrl || c.dim(`未获取（可在公众号后台草稿箱查看）`)],
-        ])
-      }
-      catch (error) {
-        ui.error(error instanceof Error ? error.message : String(error))
-        process.exitCode = 1
-      }
+      await executeCommand<PublishResult>({
+        run,
+        render: data => <View data={data} />,
+        plain: (data) => {
+          ui.success(`草稿创建成功`)
+          process.stdout.write(`  ${c.dim(`标题`)}      ${data.title}\n`)
+          process.stdout.write(`  ${c.dim(`media_id`)}  ${data.mediaId}\n`)
+          process.stdout.write(`  ${c.dim(`正文图片`)}  ${data.uploadedContentImageCount}/${data.contentImageCount} 已上传\n`)
+          process.stdout.write(`  ${c.dim(`预览链接`)}  ${data.previewUrl || `未获取（可在公众号后台草稿箱查看）`}\n`)
+        },
+      })
     })
 }

@@ -5,6 +5,8 @@
     "moduleResolution": "Bundler",
     "lib": ["ES2023", "DOM"],
     "types": ["node"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
     "strict": true,
     "noUncheckedIndexedAccess": false,
     "esModuleInterop": true,
