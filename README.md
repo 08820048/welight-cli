@@ -61,6 +61,10 @@ WELIGHT_ZHUQUE_KEY=xxx welight detect post.md --max-ai 40
 WELIGHT_MODEL_API_KEY=xxx WELIGHT_MODEL_BASE_URL=https://api.deepseek.com/v1 WELIGHT_MODEL=deepseek-chat \
   welight title post.md --count 5
 
+# Welight AI：带文章上下文的写作助手（可调用规则扫描/朱雀检测工具）
+WELIGHT_MODEL_API_KEY=xxx WELIGHT_MODEL_BASE_URL=... WELIGHT_MODEL=... \
+  welight ai "这篇文章有没有平台规则风险？" --file post.md
+
 # 从管道读取，输出到 stdout
 cat post.md | welight render - > out.html
 
@@ -111,6 +115,7 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 | `welight lint <file>` | 扫描公众号平台规则命中，可用 `--json`/`--fail-on` 接入 CI |
 | `welight detect <file>` | 腾讯朱雀 AIGC 检测，可用 `--json`/`--max-ai` 接入 CI |
 | `welight title <file>` | 生成候选标题（BYOK 模型），也可用 `--topic` 直接给主题 |
+| `welight ai <prompt>` | 写作助手对话，带文章上下文，可按需调用规则扫描 / 朱雀检测工具 |
 | `welight themes` | 列出可用的免费主题 |
 | `welight doctor` | 检查运行环境、配置与密钥状态 |
 | `welight init` | 生成 `welight.config.json` 配置模板 |
@@ -140,7 +145,11 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 - 必需：`WELIGHT_MODEL_API_KEY`、`WELIGHT_MODEL_BASE_URL`、`WELIGHT_MODEL`（可用同名 CLI 参数覆盖）。
 - `--topic` 直接指定主题；`--count` 控制数量（默认 5）；`--json` 输出 `{ titles }`。
 
-> Welight AI 对话命令正在开发中。
+`ai` 是 CLI 自建的轻量 Agent（不依赖桌面端运行时）：
+
+- `welight ai "指令" --file post.md`，结果可 `--out` 写回文件、`--json` 输出；
+- 模型可按需调用 `check_wechat_rules`（本地规则扫描）与 `detect_ai_text`（朱雀检测，需 `WELIGHT_ZHUQUE_KEY`）；
+- 工具进度输出到 stderr，正文结果走 stdout，便于管道组合。
 
 ## 开发
 

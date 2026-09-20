@@ -1,6 +1,7 @@
 import { Builtins, Cli } from 'clipanion'
 import { VERSION } from './version'
 import { CopyCommand } from './commands/copy'
+import { AiCommand } from './commands/ai'
 import { DetectCommand } from './commands/detect'
 import { DoctorCommand } from './commands/doctor'
 import { InitCommand } from './commands/init'
@@ -23,6 +24,7 @@ export function createCli(): Cli {
   cli.register(LintCommand)
   cli.register(DetectCommand)
   cli.register(TitleCommand)
+  cli.register(AiCommand)
   cli.register(ThemesCommand)
   cli.register(DoctorCommand)
   cli.register(InitCommand)
