@@ -1,0 +1,7 @@
+node_modules
+dist
+*.log
+.DS_Store
+welight.config.local.json
+.welight
+coverage
