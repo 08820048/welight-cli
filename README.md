@@ -37,7 +37,8 @@ pnpm dlx welight --help
 
 ```bash
 # 生成配置模板
-welight init
+# 配置向导：模型 / 密钥等（也可用 welight auth set、welight config set）
+welight setup
 
 # 列出可用的免费主题
 welight themes
@@ -49,21 +50,19 @@ welight render post.md --theme w011 --out out.html
 welight copy post.md --theme w011
 
 # 发布到公众号草稿箱（直连微信，需先加 IP 白名单）
-WELIGHT_WECHAT_APP_ID=xxx WELIGHT_WECHAT_APP_SECRET=yyy welight publish post.md --cover ./cover.png
+welight publish post.md --cover ./cover.png
 
 # 规则检查（CI 门禁：命中高危时退出码 1）
 welight lint post.md --fail-on high
 
-# 朱雀 AIGC 检测（自配 EdgeOne Key）
-WELIGHT_ZHUQUE_KEY=xxx welight detect post.md --max-ai 40
+# 朱雀 AIGC 检测
+welight detect post.md --max-ai 40
 
-# 生成候选标题（BYOK OpenAI 兼容模型）
-WELIGHT_MODEL_API_KEY=xxx WELIGHT_MODEL_BASE_URL=https://api.deepseek.com/v1 WELIGHT_MODEL=deepseek-chat \
-  welight title post.md --count 5
+# 生成候选标题（BYOK 模型）
+welight title post.md --count 5
 
-# Welight AI：带文章上下文的写作助手（可调用规则扫描/朱雀检测工具）
-WELIGHT_MODEL_API_KEY=xxx WELIGHT_MODEL_BASE_URL=... WELIGHT_MODEL=... \
-  welight ai "这篇文章有没有平台规则风险？" --file post.md
+# Welight AI：带文章上下文的写作助手
+welight ai "这篇文章有没有平台规则风险？" --file post.md
 
 # 从管道读取，输出到 stdout
 cat post.md | welight render - > out.html
@@ -103,11 +102,45 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 - `proxy`：自建微信 API 反向代理 origin，留空直连。
 - `lint.failOn`：`lint` 默认失败阈值；`model.baseUrl` / `model.model`：模型默认接口与模型名（密钥不写这里）；`typesafe.endpoint`：覆盖 TypeSafe 上游。
 
-**优先级：命令行参数 > 环境变量 > 配置文件 > 内置默认值**；用 `welight config` 查看当前生效配置。
+**优先级：命令行参数 > 环境变量 > 配置文件 > 内置默认值**。
 
-密钥只从环境变量读取，不写入配置文件。也可以让配置助手代劳：`welight setup`（或 `welight ai --chat`）会对话式引导，密钥由本地安全输入，保存到 `~/.config/welight/credentials`（`WELIGHT_HOME` 可改，权限 0600），启动时自动加载。
+### 怎么配置
 
-需要手动设置时：
+三种方式，按推荐顺序：
+
+**1. 配置向导（推荐）**
+
+```bash
+welight setup
+```
+
+逐步提示：模型接口 / 模型名 / 模型 Key / TypeSafe / 朱雀 / 公众号 / 默认主题。密钥不回显，直接回车跳过任意一项。不需要任何前置配置。
+
+**2. 命令式**
+
+```bash
+# 非敏感项
+welight config set theme w011
+welight config set model.baseUrl https://api.deepseek.com/v1
+welight config set model.model deepseek-chat
+welight config set lint.failOn low
+welight config get theme
+welight config unset theme
+
+# 密钥（用别名；省略 value 时遮罩输入，不会进 shell 历史）
+welight auth set model
+welight auth set typesafe
+welight auth set zhuque
+welight auth set wechat-app-secret
+welight auth list
+```
+
+可用的 config 项：`theme` `primaryColor` `fontFamily` `fontSize` `customCSS` `codeTheme` `watermark` `proxy` `lint.failOn` `model.baseUrl` `model.model` `typesafe.endpoint`；
+auth 名：`model` `typesafe` `zhuque` `wechat-app-id` `wechat-app-secret`（也可用完整环境变量名）。
+
+密钥保存在 `~/.config/welight/credentials`（`WELIGHT_HOME` 可改，权限 0600），启动时自动加载；非敏感项写入 `welight.config.json`。用 `welight config` 看当前配置，`welight doctor` 看凭据状态。
+
+**3. 环境变量（适合 CI / 临时覆盖）**
 
 | 变量 | 用途 |
 | --- | --- |
@@ -132,10 +165,11 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 | `welight detect <file>` | 腾讯朱雀 AIGC 检测，可用 `--json`/`--max-ai` 接入 CI |
 | `welight title <file>` | 生成候选标题（BYOK 模型），也可用 `--topic` 直接给主题 |
 | `welight ai <prompt>` | 写作助手对话，带文章上下文，可按需调用工具 |
-| `welight setup` | 配置助手（等价 `welight ai --chat`），对话式完成 model / 朱雀 / TypeSafe / 公众号等配置 |
+| `welight setup` | 配置向导：逐步完成模型 / 朱雀 / TypeSafe / 公众号等配置（无需 AI） |
+| `welight auth <list\|set\|remove>` | 管理本地凭据（密钥） |
 | `welight themes` | 列出可用的免费主题 |
 | `welight doctor` | 检查运行环境、配置与密钥状态 |
-| `welight config` | 打印当前生效配置与来源文件 |
+| `welight config [get\|set\|unset]` | 查看或修改配置 |
 | `welight init` | 生成 `welight.config.json` 配置模板 |
 
 文件参数传 `-` 表示从 stdin 读取。`copy` 默认使用 `github-dark` 代码高亮主题，可用 `--code-theme` 指定或传 `none` 关闭。
@@ -171,7 +205,7 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 - 发布等有副作用的操作**不**放进工具循环，避免模型误触发；需要发布请用 `welight publish`。
 - 默认**流式输出**（`--stream`，`--json` / `--out` 时自动关闭）；工具进度输出到 stderr，正文结果走 stdout，便于管道组合。
 
-`welight ai --chat` / `welight setup` 是多轮对话模式，可让助手直接帮你配置：
+`welight ai --chat` 是多轮对话助手，可以在对话里直接帮你改配置：
 
 - 非敏感项（主题、代码高亮、水印、微信代理、模型接口/模型名、lint 阈值）由 `save_config` 写入 `welight.config.json`；
 - **密钥由 CLI 在本地安全输入**（不回显、不发送给模型），保存到本地凭据文件（见下），模型只会收到“已保存”。

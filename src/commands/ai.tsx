@@ -271,17 +271,3 @@ export function registerAi(program: Command): void {
       await runOnce(prompt, options, settings)
     })
 }
-
-export function registerSetup(program: Command): void {
-  commonAiOptions(
-    program
-      .command(`setup`)
-      .description(`配置助手：通过对话完成模型 / 朱雀 / TypeSafe / 公众号等配置`),
-  )
-    .addHelpText(`after`, `\n非敏感项写入 welight.config.json；密钥由本地安全输入并保存到本地凭据文件，\n不会发送给模型。\n\n示例:\n  $ welight setup`)
-    .action(async (options: AiOptions) => {
-      installDom()
-      const settings = await resolveAiSettings(options)
-      await runChat(settings, options.file)
-    })
-}

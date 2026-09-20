@@ -1,7 +1,8 @@
 import { Command } from 'commander'
 import { VERSION } from './version'
 import { loadCredentials } from './credentials'
-import { registerAi, registerSetup } from './commands/ai'
+import { registerAi } from './commands/ai'
+import { registerAuth } from './commands/auth'
 import { registerConfig } from './commands/config'
 import { registerCopy } from './commands/copy'
 import { registerDetect } from './commands/detect'
@@ -10,6 +11,7 @@ import { registerInit } from './commands/init'
 import { registerLint } from './commands/lint'
 import { registerPublish } from './commands/publish'
 import { registerRender } from './commands/render'
+import { registerSetup } from './commands/setup'
 import { registerThemes } from './commands/themes'
 import { registerTitle } from './commands/title'
 import { c } from './ui'
@@ -35,16 +37,18 @@ export function createCli(): Command {
   registerDoctor(program)
   registerInit(program)
   registerConfig(program)
+  registerAuth(program)
 
   program.addHelpText(
     `after`,
     [
       ``,
       `${c.bold(`快速开始`)}`,
+      `  ${c.dim(`$`)} welight setup                                     ${c.dim(`配置向导（模型 / 密钥）`)}`,
       `  ${c.dim(`$`)} welight render post.md --theme w011 --out out.html   ${c.dim(`渲染预览`)}`,
       `  ${c.dim(`$`)} welight copy post.md                                 ${c.dim(`复制到公众号`)}`,
       `  ${c.dim(`$`)} welight lint post.md                                 ${c.dim(`发布前规则检查`)}`,
-      `  ${c.dim(`$`)} welight setup                                       ${c.dim(`对话式配置助手`)}`,
+      `  ${c.dim(`$`)} welight ai --chat                                  ${c.dim(`AI 对话助手`)}`,
       ``,
       `${c.dim(`文档: https://github.com/08820048/welight-cli`)}`,
     ].join(`\n`),

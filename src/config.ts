@@ -143,13 +143,7 @@ export function saveConfigValues(
   cwd: string = process.cwd(),
 ): { file: string, config: WelightConfig } {
   const file = path.join(cwd, `welight.config.json`)
-  let existing: Record<string, unknown> = {}
-  try {
-    existing = JSON.parse(fs.readFileSync(file, `utf8`)) as Record<string, unknown>
-  }
-  catch {
-    existing = {}
-  }
+  const existing = readRawConfig(cwd)
 
   const merged: Record<string, unknown> = { ...existing }
   for (const [key, value] of Object.entries(patch)) {
@@ -170,6 +164,90 @@ export function saveConfigValues(
   }
 
   const config = configSchema.parse(merged)
+  fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`, `utf8`)
+  return { file, config }
+}
+
+/** 可直接通过 config set/get/unset 访问的叶子路径 */
+export const CONFIG_PATHS = [
+  `theme`,
+  `primaryColor`,
+  `fontFamily`,
+  `fontSize`,
+  `customCSS`,
+  `codeTheme`,
+  `watermark`,
+  `proxy`,
+  `lint.failOn`,
+  `model.baseUrl`,
+  `model.model`,
+  `typesafe.endpoint`,
+] as const
+
+export type ConfigPath = (typeof CONFIG_PATHS)[number]
+
+export function isConfigPath(value: string): value is ConfigPath {
+  return (CONFIG_PATHS as readonly string[]).includes(value)
+}
+
+/** 读取原始配置文件内容（未校验） */
+export function readRawConfig(cwd: string = process.cwd()): Record<string, unknown> {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(cwd, `welight.config.json`), `utf8`)) as Record<string, unknown>
+  }
+  catch {
+    return {}
+  }
+}
+
+function coerceValue(value: string): unknown {
+  if (value === `true`)
+    return true
+  if (value === `false`)
+    return false
+  return value
+}
+
+/** 读取某个配置叶子值 */
+export function getConfigValue(config: WelightConfig, key: string): unknown {
+  return key.split(`.`).reduce<unknown>((acc, part) => {
+    if (acc && typeof acc === `object`)
+      return (acc as Record<string, unknown>)[part]
+    return undefined
+  }, config)
+}
+
+/** 按点路径写入配置 */
+export function setConfigValue(key: string, value: string, cwd: string = process.cwd()): { file: string, config: WelightConfig } {
+  if (!isConfigPath(key))
+    throw new Error(`不支持的配置项：${key}\n可用：${CONFIG_PATHS.join(`, `)}`)
+  const patch: Record<string, unknown> = {}
+  const parts = key.split(`.`)
+  let cursor: Record<string, unknown> = patch
+  parts.forEach((part, index) => {
+    if (index === parts.length - 1)
+      cursor[part] = coerceValue(value)
+    else
+      cursor = cursor[part] = {} as Record<string, unknown>
+  })
+  return saveConfigValues(patch, cwd)
+}
+
+/** 按点路径删除配置（恢复默认值） */
+export function unsetConfigValue(key: string, cwd: string = process.cwd()): { file: string, config: WelightConfig } {
+  if (!isConfigPath(key))
+    throw new Error(`不支持的配置项：${key}\n可用：${CONFIG_PATHS.join(`, `)}`)
+  const raw = readRawConfig(cwd)
+  const parts = key.split(`.`)
+  let cursor: Record<string, unknown> | undefined = raw
+  for (let index = 0; index < parts.length - 1; index += 1) {
+    const next: unknown = cursor?.[parts[index]]
+    cursor = next && typeof next === `object` ? next as Record<string, unknown> : undefined
+  }
+  if (cursor)
+    delete cursor[parts[parts.length - 1]]
+  const config = configSchema.parse(raw)
+  const file = path.join(cwd, `welight.config.json`)
   fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`, `utf8`)
   return { file, config }
 }

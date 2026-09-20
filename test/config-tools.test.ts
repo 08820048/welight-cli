@@ -4,8 +4,8 @@ import path from 'node:path'
 import process from 'node:process'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { AI_TOOLS } from '../src/ai/tools'
-import { credentialsFilePath, credentialStatus, loadCredentials, saveCredential } from '../src/credentials'
-import { saveConfigValues } from '../src/config'
+import { configSchema, getConfigValue, readRawConfig, saveConfigValues, setConfigValue, unsetConfigValue } from '../src/config'
+import { credentialsFilePath, credentialStatus, loadCredentials, removeCredential, resolveCredentialName, saveCredential } from '../src/credentials'
 import { installDom } from '../src/dom'
 
 installDom()
@@ -87,6 +87,46 @@ describe(`saveConfigValues`, () => {
 
   it(`拒绝未知配置键`, () => {
     expect(() => saveConfigValues({ nope: 1 }, dir)).toThrow(/不支持的配置项/)
+  })
+})
+
+describe(`config 点路径读写`, () => {
+  it(`set / get / unset`, () => {
+    setConfigValue(`theme`, `w011`, dir)
+    setConfigValue(`model.baseUrl`, `https://api.deepseek.com/v1`, dir)
+    setConfigValue(`watermark`, `false`, dir)
+
+    const config = configSchema.parse(readRawConfig(dir))
+    expect(config.theme).toBe(`w011`)
+    expect(config.model.baseUrl).toBe(`https://api.deepseek.com/v1`)
+    expect(config.watermark).toBe(false)
+    expect(getConfigValue(config, `model.baseUrl`)).toBe(`https://api.deepseek.com/v1`)
+
+    unsetConfigValue(`theme`, dir)
+    expect(configSchema.parse(readRawConfig(dir)).theme).toBe(`w001`)
+  })
+
+  it(`拒绝未知路径写入`, () => {
+    expect(() => setConfigValue(`bogus.x`, `1`, dir)).toThrow(/不支持的配置项/)
+    expect(() => unsetConfigValue(`nope`, dir)).toThrow(/不支持的配置项/)
+  })
+})
+
+describe(`凭据别名与删除`, () => {
+  it(`解析别名`, () => {
+    expect(resolveCredentialName(`model`)).toBe(`WELIGHT_MODEL_API_KEY`)
+    expect(resolveCredentialName(`typesafe`)).toBe(`WELIGHT_TYPESAFE_KEY`)
+    expect(resolveCredentialName(`wechat-app-secret`)).toBe(`WELIGHT_WECHAT_APP_SECRET`)
+    expect(resolveCredentialName(`WELIGHT_ZHUQUE_KEY`)).toBe(`WELIGHT_ZHUQUE_KEY`)
+    expect(resolveCredentialName(`nope`)).toBeNull()
+  })
+
+  it(`删除凭据并清除环境变量`, () => {
+    saveCredential(`WELIGHT_TYPESAFE_KEY`, `x`)
+    expect(process.env.WELIGHT_TYPESAFE_KEY).toBe(`x`)
+    removeCredential(`WELIGHT_TYPESAFE_KEY`)
+    expect(process.env.WELIGHT_TYPESAFE_KEY).toBeUndefined()
+    expect(fs.readFileSync(path.join(dir, `credentials`), `utf8`)).not.toContain(`WELIGHT_TYPESAFE_KEY`)
   })
 })
 

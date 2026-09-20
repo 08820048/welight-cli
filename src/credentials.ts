@@ -27,6 +27,23 @@ export function isCredentialName(name: string): name is CredentialName {
   return Object.prototype.hasOwnProperty.call(CREDENTIAL_SPECS, name)
 }
 
+/** 简写别名 → 环境变量名 */
+export const CREDENTIAL_ALIASES: Record<string, CredentialName> = {
+  model: `WELIGHT_MODEL_API_KEY`,
+  typesafe: `WELIGHT_TYPESAFE_KEY`,
+  zhuque: `WELIGHT_ZHUQUE_KEY`,
+  'wechat-app-id': `WELIGHT_WECHAT_APP_ID`,
+  'wechat-app-secret': `WELIGHT_WECHAT_APP_SECRET`,
+}
+
+/** 把用户输入（全名或别名）解析为凭据名 */
+export function resolveCredentialName(name: string): CredentialName | null {
+  const trimmed = name.trim()
+  if (isCredentialName(trimmed))
+    return trimmed
+  return CREDENTIAL_ALIASES[trimmed.toLowerCase()] ?? null
+}
+
 export function credentialsFilePath(): string {
   const home = (process.env.WELIGHT_HOME ?? ``).trim() || path.join(os.homedir(), `.config`, `welight`)
   return path.join(home, `credentials`)
@@ -94,6 +111,28 @@ export function saveCredential(name: string, value: string): void {
     // 某些文件系统不支持 chmod，忽略
   }
   process.env[name] = value
+}
+
+/** 删除单个凭据 */
+export function removeCredential(name: string): void {
+  if (!isCredentialName(name))
+    throw new Error(`不支持的凭据项：${name}`)
+  const file = credentialsFilePath()
+  let map: Record<string, string> = {}
+  try {
+    map = parseEnvFile(fs.readFileSync(file, `utf8`))
+  }
+  catch {
+    map = {}
+  }
+  delete map[name]
+  const entries = Object.entries(map)
+  const content = entries.length > 0
+    ? `${entries.map(([key, val]) => `${key}=${JSON.stringify(val)}`).join(`\n`)}\n`
+    : ``
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, content, { mode: 0o600 })
+  delete process.env[name]
 }
 
 /** 各凭据是否已配置（不含值） */
