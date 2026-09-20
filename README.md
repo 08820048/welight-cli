@@ -57,6 +57,10 @@ welight lint post.md --fail-on high
 # 朱雀 AIGC 检测（自配 EdgeOne Key）
 WELIGHT_ZHUQUE_KEY=xxx welight detect post.md --max-ai 40
 
+# 生成候选标题（BYOK OpenAI 兼容模型）
+WELIGHT_MODEL_API_KEY=xxx WELIGHT_MODEL_BASE_URL=https://api.deepseek.com/v1 WELIGHT_MODEL=deepseek-chat \
+  welight title post.md --count 5
+
 # 从管道读取，输出到 stdout
 cat post.md | welight render - > out.html
 
@@ -88,7 +92,9 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 
 | 变量 | 用途 |
 | --- | --- |
-| `WELIGHT_MODEL_API_KEY` | Welight AI / 一键排版 / 标题推荐使用的模型 |
+| `WELIGHT_MODEL_API_KEY` | 模型 API Key（Welight AI / 标题推荐） |
+| `WELIGHT_MODEL_BASE_URL` | OpenAI 兼容接口地址，如 `https://api.deepseek.com/v1` |
+| `WELIGHT_MODEL` | 模型名，如 `deepseek-chat` |
 | `WELIGHT_TYPESAFE_KEY` | TypeSafe System One 判断层（排版自动档、语义复核、标题评分） |
 | `WELIGHT_ZHUQUE_KEY` | 腾讯 EdgeOne / 朱雀 AIGC 检测 |
 | `WELIGHT_WECHAT_APP_ID` / `WELIGHT_WECHAT_APP_SECRET` | 微信公众号 |
@@ -104,6 +110,7 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 | `welight publish <file>` | 渲染并直连微信接口创建公众号草稿（不做正式发布） |
 | `welight lint <file>` | 扫描公众号平台规则命中，可用 `--json`/`--fail-on` 接入 CI |
 | `welight detect <file>` | 腾讯朱雀 AIGC 检测，可用 `--json`/`--max-ai` 接入 CI |
+| `welight title <file>` | 生成候选标题（BYOK 模型），也可用 `--topic` 直接给主题 |
 | `welight themes` | 列出可用的免费主题 |
 | `welight doctor` | 检查运行环境、配置与密钥状态 |
 | `welight init` | 生成 `welight.config.json` 配置模板 |
@@ -128,7 +135,12 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 
 - 自动剥离 Markdown 语法并按 2 万字上限截断；`--json` 输出完整报告，`--max-ai <百分比>` 在 AI + 疑似占比超阈时退出码 1。
 
-> 标题推荐、Welight AI 等命令正在开发中。
+`title` 复用桌面端「爆款标题」提示词，调用你自己配置的 OpenAI 兼容模型：
+
+- 必需：`WELIGHT_MODEL_API_KEY`、`WELIGHT_MODEL_BASE_URL`、`WELIGHT_MODEL`（可用同名 CLI 参数覆盖）。
+- `--topic` 直接指定主题；`--count` 控制数量（默认 5）；`--json` 输出 `{ titles }`。
+
+> Welight AI 对话命令正在开发中。
 
 ## 开发
 

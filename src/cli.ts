@@ -8,6 +8,7 @@ import { LintCommand } from './commands/lint'
 import { PublishCommand } from './commands/publish'
 import { RenderCommand } from './commands/render'
 import { ThemesCommand } from './commands/themes'
+import { TitleCommand } from './commands/title'
 
 export function createCli(): Cli {
   const cli = new Cli({
@@ -21,6 +22,7 @@ export function createCli(): Cli {
   cli.register(PublishCommand)
   cli.register(LintCommand)
   cli.register(DetectCommand)
+  cli.register(TitleCommand)
   cli.register(ThemesCommand)
   cli.register(DoctorCommand)
   cli.register(InitCommand)
