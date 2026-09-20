@@ -54,6 +54,9 @@ WELIGHT_WECHAT_APP_ID=xxx WELIGHT_WECHAT_APP_SECRET=yyy welight publish post.md 
 # 规则检查（CI 门禁：命中高危时退出码 1）
 welight lint post.md --fail-on high
 
+# 朱雀 AIGC 检测（自配 EdgeOne Key）
+WELIGHT_ZHUQUE_KEY=xxx welight detect post.md --max-ai 40
+
 # 从管道读取，输出到 stdout
 cat post.md | welight render - > out.html
 
@@ -100,6 +103,7 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 | `welight copy <file>` | 生成公众号内联 HTML 并写入系统剪贴板，到公众号后台粘贴 |
 | `welight publish <file>` | 渲染并直连微信接口创建公众号草稿（不做正式发布） |
 | `welight lint <file>` | 扫描公众号平台规则命中，可用 `--json`/`--fail-on` 接入 CI |
+| `welight detect <file>` | 腾讯朱雀 AIGC 检测，可用 `--json`/`--max-ai` 接入 CI |
 | `welight themes` | 列出可用的免费主题 |
 | `welight doctor` | 检查运行环境、配置与密钥状态 |
 | `welight init` | 生成 `welight.config.json` 配置模板 |
@@ -120,7 +124,11 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 - `--json` 输出完整扫描报告；`--fail-on none|low|medium|high` 控制退出码（默认 `high`）。
 - 供 CI 使用：`welight lint post.md --fail-on high || exit 1`。
 
-> 朱雀检测、标题推荐、Welight AI 等命令正在开发中。
+`detect` 使用自配 EdgeOne Key 直连腾讯网关（`WELIGHT_ZHUQUE_KEY` 或 `--api-key`），不做官方代理：
+
+- 自动剥离 Markdown 语法并按 2 万字上限截断；`--json` 输出完整报告，`--max-ai <百分比>` 在 AI + 疑似占比超阈时退出码 1。
+
+> 标题推荐、Welight AI 等命令正在开发中。
 
 ## 开发
 
