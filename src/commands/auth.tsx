@@ -1,6 +1,8 @@
 import process from 'node:process'
 import type { Command } from 'commander'
 import { CREDENTIAL_SPECS, credentialStatus, credentialsFilePath, removeCredential, resolveCredentialName, saveCredential } from '../credentials'
+import { loadWelightConfig, missingModelConfig } from '../config'
+import { configureModel } from '../modelSetup'
 import { askPassword } from '../ink/prompts'
 import { isInteractive } from '../prompt'
 import { c, ui } from '../ui'
@@ -61,6 +63,15 @@ export function registerAuth(program: Command): void {
       }
       saveCredential(resolved, secret)
       ui.success(`已保存「${label}」到 ${credentialsFilePath()}`)
+
+      // 模型密钥：若还缺接口地址 / 模型名，继续补全
+      if (resolved === `WELIGHT_MODEL_API_KEY`) {
+        const { config } = await loadWelightConfig()
+        if (missingModelConfig(config).length > 0) {
+          ui.info(`模型还需要接口地址 / 模型名，继续补全：`)
+          await configureModel({}, { onlyMissing: true })
+        }
+      }
     })
 
   auth

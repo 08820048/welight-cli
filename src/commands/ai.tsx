@@ -30,6 +30,7 @@ interface ResolvedSettings {
   baseUrl: string
   model: string
   maxSteps: number
+  missing: string[]
 }
 
 async function resolveAiSettings(options: AiOptions): Promise<ResolvedSettings> {
@@ -41,7 +42,14 @@ async function resolveAiSettings(options: AiOptions): Promise<ResolvedSettings> 
   })
   const stepsRaw = Number(options.maxSteps ?? 6)
   const maxSteps = Number.isFinite(stepsRaw) && stepsRaw > 0 ? Math.min(Math.floor(stepsRaw), 20) : 6
-  return { ...settings, maxSteps }
+  const missing: string[] = []
+  if (!settings.baseUrl)
+    missing.push(`模型接口（--base-url 或 model.baseUrl）`)
+  if (!settings.model)
+    missing.push(`模型名（--model 或 model.model）`)
+  if (!settings.apiKey)
+    missing.push(`模型密钥（welight auth set model）`)
+  return { ...settings, maxSteps, missing }
 }
 
 type ChatLine
@@ -170,13 +178,13 @@ function ChatTui({ settings, file }: { settings: ResolvedSettings, file?: string
 }
 
 async function runChat(settings: ResolvedSettings, file?: string): Promise<void> {
-  if (!isInteractive()) {
-    ui.error(`对话模式需要在交互式终端中运行。`)
+  if (settings.missing.length > 0) {
+    ui.error(`模型配置不完整，缺少：${settings.missing.join(`、`)}。\n运行 welight model 或 welight setup 补全。`)
     process.exitCode = 1
     return
   }
-  if (!settings.apiKey || !settings.baseUrl || !settings.model) {
-    ui.error(`对话模式需要模型配置。请先设置 WELIGHT_MODEL_API_KEY，并配置模型接口 / 模型名（welight config 或配置文件 model.baseUrl / model.model）。`)
+  if (!isInteractive()) {
+    ui.error(`对话模式需要在交互式终端中运行。`)
     process.exitCode = 1
     return
   }
@@ -186,6 +194,11 @@ async function runChat(settings: ResolvedSettings, file?: string): Promise<void>
 }
 
 async function runOnce(prompt: string, options: AiOptions, settings: ResolvedSettings): Promise<void> {
+  if (settings.missing.length > 0) {
+    ui.error(`模型配置不完整，缺少：${settings.missing.join(`、`)}。\n运行 welight model 或 welight setup 补全。`)
+    process.exitCode = 1
+    return
+  }
   const content = options.file ? await readInput(options.file) : ``
   const shouldStream = (options.stream ?? true) && !options.out && !options.json
 

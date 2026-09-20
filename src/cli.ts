@@ -9,6 +9,7 @@ import { registerDetect } from './commands/detect'
 import { registerDoctor } from './commands/doctor'
 import { registerInit } from './commands/init'
 import { registerLint } from './commands/lint'
+import { registerModel } from './commands/model'
 import { registerPublish } from './commands/publish'
 import { registerRender } from './commands/render'
 import { registerSetup } from './commands/setup'
@@ -38,6 +39,7 @@ export function createCli(): Command {
   registerInit(program)
   registerConfig(program)
   registerAuth(program)
+  registerModel(program)
 
   program.addHelpText(
     `after`,

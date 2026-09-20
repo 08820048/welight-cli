@@ -119,6 +119,18 @@ export function resolveTypesafeEndpoint(config: WelightConfig): string {
   return (process.env.WELIGHT_TYPESAFE_ENDPOINT ?? config.typesafe.endpoint ?? ``).trim()
 }
 
+/** 模型配置缺失项（接口 / 模型名 / 密钥） */
+export function missingModelConfig(config: WelightConfig): string[] {
+  const missing: string[] = []
+  if (!config.model.baseUrl.trim())
+    missing.push(`模型接口(model.baseUrl)`)
+  if (!config.model.model.trim())
+    missing.push(`模型名(model.model)`)
+  if (!(process.env.WELIGHT_MODEL_API_KEY ?? ``).trim())
+    missing.push(`模型密钥`)
+  return missing
+}
+
 /** 允许写入 welight.config.json 的顶层键（密钥不在其中） */
 export const SAVEABLE_CONFIG_KEYS = [
   `theme`,
