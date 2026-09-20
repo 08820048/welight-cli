@@ -1,5 +1,6 @@
 import type { WechatRuleSeverity } from '../engine/shared/types'
 import { Command, Option } from 'clipanion'
+import { loadWelightConfig, resolveFailOn } from '../config'
 import { scanWechatRules } from '../engine'
 import { readInput } from '../io'
 import { inferTitle } from '../publish'
@@ -7,8 +8,6 @@ import { RULES_DATA, RULES_SOURCE_URL, RULES_UPDATED_AT, RULES_VERSION } from '.
 
 const SEVERITY_WEIGHT: Record<WechatRuleSeverity, number> = { high: 3, medium: 2, low: 1 }
 const SEVERITY_LABEL: Record<WechatRuleSeverity, string> = { high: `高`, medium: `中`, low: `低` }
-const FAIL_ON = [`none`, `low`, `medium`, `high`] as const
-type FailOn = (typeof FAIL_ON)[number]
 
 export class LintCommand extends Command {
   static paths = [[`lint`]]
@@ -35,12 +34,13 @@ export class LintCommand extends Command {
 
   json = Option.Boolean(`--json`, false, { description: `以 JSON 输出扫描报告` })
 
-  failOn = Option.String(`--fail-on`, `high`, {
-    description: `命中达到该级别时退出码为 1：none | low | medium | high`,
+  failOn = Option.String(`--fail-on`, {
+    description: `命中达到该级别时退出码为 1：none | low | medium | high（默认取配置，默认 high）`,
   })
 
   async execute(): Promise<number> {
-    const failOn = (FAIL_ON as readonly string[]).includes(this.failOn) ? (this.failOn as FailOn) : `high`
+    const { config } = await loadWelightConfig()
+    const failOn = resolveFailOn(config, this.failOn)
     const markdown = await readInput(this.file)
     const title = this.title || inferTitle(markdown, ``)
 

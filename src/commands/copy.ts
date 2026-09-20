@@ -1,6 +1,6 @@
 import { Command, Option } from 'clipanion'
 import { copyRichHtml } from '../clipboard'
-import { loadWelightConfig } from '../config'
+import { loadWelightConfig, resolveCodeTheme } from '../config'
 import { installDom } from '../dom'
 import { readInput } from '../io'
 import { buildWeChatInlineHtml, htmlToPlainText } from '../wechat'
@@ -44,7 +44,7 @@ export class CopyCommand extends Command {
         fontFamily: config.fontFamily,
         fontSize: config.fontSize,
         customCSS: config.customCSS,
-        codeTheme: this.codeTheme ?? `github-dark`,
+        codeTheme: resolveCodeTheme(config, this.codeTheme),
       })
     }
     catch (error) {

@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import process from 'node:process'
 import { Command, Option } from 'clipanion'
 import { runAgent } from '../ai/agent'
+import { loadWelightConfig, resolveModelSettings } from '../config'
 import { installDom } from '../dom'
 import { readInput } from '../io'
 
@@ -38,16 +39,19 @@ export class AiCommand extends Command {
 
   maxSteps = Option.String(`--max-steps`, { description: `最大工具调用步数，默认 6` })
 
-  stream = Option.Boolean(`--stream`, true, { description: `流式输出（--json / --out 时自动关闭）` })
+  stream = Option.Boolean(`--stream`, { description: `流式输出（默认开启；--json / --out 时自动关闭）` })
 
   json = Option.Boolean(`--json`, false, { description: `以 JSON 输出` })
 
   async execute(): Promise<number> {
     installDom()
 
-    const apiKey = (this.apiKey ?? process.env.WELIGHT_MODEL_API_KEY ?? ``).trim()
-    const baseUrl = (this.baseUrl ?? process.env.WELIGHT_MODEL_BASE_URL ?? ``).trim()
-    const model = (this.model ?? process.env.WELIGHT_MODEL ?? ``).trim()
+    const { config } = await loadWelightConfig()
+    const { apiKey, baseUrl, model } = resolveModelSettings(config, {
+      apiKey: this.apiKey,
+      baseUrl: this.baseUrl,
+      model: this.model,
+    })
 
     const content = this.file ? await readInput(this.file) : ``
     const stepsRaw = Number(this.maxSteps ?? 6)
@@ -55,7 +59,7 @@ export class AiCommand extends Command {
 
     let result: string
     let streamed = false
-    const shouldStream = this.stream && !this.out && !this.json
+    const shouldStream = (this.stream ?? true) && !this.out && !this.json
     try {
       result = await runAgent({
         prompt: this.prompt,

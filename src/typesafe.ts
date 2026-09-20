@@ -57,10 +57,11 @@ export async function askJudgment(
   if (!apiKey)
     return null
 
+  const endpoint = (options.endpoint ?? ``).trim() || resolveTypesafeEndpoint()
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 8_000)
   try {
-    const response = await fetch(options.endpoint ?? resolveTypesafeEndpoint(), {
+    const response = await fetch(endpoint, {
       method: `POST`,
       headers: {
         'content-type': `application/json`,

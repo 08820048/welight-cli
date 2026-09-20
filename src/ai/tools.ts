@@ -8,13 +8,14 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
-import { loadWelightConfig } from '../config'
+import readingTime from 'reading-time'
+import { loadWelightConfig, resolveTypesafeEndpoint } from '../config'
 import { scanWechatRules } from '../engine'
 import type { ZhuqueDetectReport } from '../engine'
 import { themeOptions } from '../engine'
+import { renderDocument } from '../render'
 import { RULES_DATA, RULES_VERSION } from '../rulesData'
 import { scoreTitles } from '../titleScore'
-import { resolveTypesafeEndpoint } from '../typesafe'
 import { buildWeChatInlineHtml } from '../wechat'
 import { aiRatio, detectAiText } from '../zhuqueApi'
 
@@ -81,6 +82,23 @@ const listThemesTool: AiTool = {
   },
 }
 
+/** 文章结构与篇幅统计 */
+const articleStatsTool: AiTool = {
+  name: `article_stats`,
+  description: `统计当前文章的字数、预计阅读时间、各级标题、图片、链接与代码块数量，帮助判断篇幅与结构。`,
+  parameters: EMPTY_PARAMS,
+  async run(_args, doc) {
+    const content = doc.content
+    const chars = content.replace(/\s/g, ``).length
+    const headings = [...content.matchAll(/^(#{1,6})\s+(.+)$/gm)].map(match => `${match[1].length} 级「${match[2].trim()}」`)
+    const images = (content.match(/!\[[^\]]*\]\([^)]*\)/g) ?? []).length
+    const links = (content.match(/(?<!!)\[[^\]]*\]\([^)]*\)/g) ?? []).length
+    const codeBlocks = Math.floor((content.match(/```/g) ?? []).length / 2)
+    const minutes = Math.max(1, Math.round(readingTime(content).minutes))
+    return `字数 ${chars}，预计阅读 ${minutes} 分钟；标题 ${headings.length} 个${headings.length ? `（${headings.slice(0, 12).join(`、`)}）` : ``}；图片 ${images}，链接 ${links}，代码块 ${codeBlocks}。`
+  },
+}
+
 /** 用指定主题渲染公众号内联 HTML 并保存为文件 */
 const renderArticleTool: AiTool = {
   name: `render_article`,
@@ -113,6 +131,37 @@ const renderArticleTool: AiTool = {
   },
 }
 
+/** 渲染独立 HTML 文档（浏览器预览） */
+const renderDocumentTool: AiTool = {
+  name: `render_document`,
+  description: `用指定免费主题把当前文章渲染为独立 HTML 文件（可在浏览器打开预览），返回文件路径与大小。`,
+  parameters: {
+    type: `object`,
+    properties: {
+      theme: { type: `string`, description: `免费主题名，如 w001` },
+      out: { type: `string`, description: `输出文件路径，缺省为当前目录 welight-document.html` },
+    },
+    additionalProperties: false,
+  },
+  async run(args, doc) {
+    if (!doc.content.trim())
+      return `当前没有文章内容可渲染。`
+    const theme = typeof args.theme === `string` && args.theme.trim() ? args.theme.trim() : undefined
+    const out = typeof args.out === `string` && args.out.trim() ? args.out.trim() : `welight-document.html`
+    const target = path.isAbsolute(out) ? out : path.resolve(process.cwd(), out)
+    const { config } = await loadWelightConfig()
+    const html = renderDocument(doc.content, {
+      theme: theme ?? config.theme,
+      primaryColor: config.primaryColor,
+      fontFamily: config.fontFamily,
+      fontSize: config.fontSize,
+      customCSS: config.customCSS,
+    })
+    await fs.writeFile(target, html, `utf8`)
+    return `已用主题 ${theme ?? config.theme} 渲染独立 HTML：${target}（${Buffer.byteLength(html, `utf8`)} 字节）`
+  },
+}
+
 /** 用 TypeSafe 判断层给候选标题评分（需 WELIGHT_TYPESAFE_KEY） */
 const scoreTitlesTool: AiTool = {
   name: `score_titles`,
@@ -132,7 +181,8 @@ const scoreTitlesTool: AiTool = {
     const titles = Array.isArray(args.titles) ? args.titles.filter((t): t is string => typeof t === `string`) : []
     if (titles.length === 0)
       return `未提供候选标题。`
-    const report = await scoreTitles(titles, { apiKey: key, endpoint: resolveTypesafeEndpoint() })
+    const { config } = await loadWelightConfig()
+    const report = await scoreTitles(titles, { apiKey: key, endpoint: resolveTypesafeEndpoint(config) })
     if (!report)
       return `判断层评分不可用。`
     const ranked = report.ranking.map((entry, index) => `${index + 1}. [${entry.score?.toFixed(2)}] ${entry.title}`)
@@ -145,6 +195,8 @@ export const AI_TOOLS: AiTool[] = [
   checkRulesTool,
   detectAiTextTool,
   listThemesTool,
+  articleStatsTool,
   renderArticleTool,
+  renderDocumentTool,
   scoreTitlesTool,
 ]

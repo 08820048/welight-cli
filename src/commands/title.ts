@@ -1,10 +1,10 @@
 import process from 'node:process'
 import { Command, Option } from 'clipanion'
+import { loadWelightConfig, resolveModelSettings, resolveTypesafeEndpoint } from '../config'
 import { TITLE_GENERATOR_PROMPT } from '../engine'
 import { readInput } from '../io'
 import { chatCompletion, parseTitleList } from '../modelClient'
 import { scoreTitles } from '../titleScore'
-import { resolveTypesafeEndpoint } from '../typesafe'
 
 const DEFAULT_COUNT = 5
 
@@ -41,14 +41,18 @@ export class TitleCommand extends Command {
 
   json = Option.Boolean(`--json`, false, { description: `以 JSON 输出` })
 
-  score = Option.Boolean(`--score`, true, { description: `用 TypeSafe 判断层给候选标题打分排序` })
+  score = Option.Boolean(`--score`, { description: `用 TypeSafe 判断层给候选标题打分排序（默认开启）` })
 
   typesafeKey = Option.String(`--typesafe-key`, { description: `TypeSafe API Key（默认读 WELIGHT_TYPESAFE_KEY）` })
 
   async execute(): Promise<number> {
-    const apiKey = (this.apiKey ?? process.env.WELIGHT_MODEL_API_KEY ?? ``).trim()
-    const baseUrl = (this.baseUrl ?? process.env.WELIGHT_MODEL_BASE_URL ?? ``).trim()
-    const model = (this.model ?? process.env.WELIGHT_MODEL ?? ``).trim()
+    const { config } = await loadWelightConfig()
+    const { apiKey, baseUrl, model } = resolveModelSettings(config, {
+      apiKey: this.apiKey,
+      baseUrl: this.baseUrl,
+      model: this.model,
+    })
+    const scoreEnabled = this.score ?? true
 
     let content = this.topic?.trim() ?? ``
     if (!content) {
@@ -89,9 +93,9 @@ export class TitleCommand extends Command {
 
     const typesafeKey = (this.typesafeKey ?? process.env.WELIGHT_TYPESAFE_KEY ?? ``).trim()
     let scoreReport = null as Awaited<ReturnType<typeof scoreTitles>>
-    if (this.score && titles.length > 0) {
+    if (scoreEnabled && titles.length > 0) {
       if (typesafeKey) {
-        scoreReport = await scoreTitles(titles, { apiKey: typesafeKey, endpoint: resolveTypesafeEndpoint() })
+        scoreReport = await scoreTitles(titles, { apiKey: typesafeKey, endpoint: resolveTypesafeEndpoint(config) })
         if (!scoreReport)
           this.context.stderr.write(`· 判断层评分不可用，已返回未评分候选\n`)
       }

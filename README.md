@@ -86,11 +86,24 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 {
   "theme": "w001",
   "primaryColor": "#4876b8",
-  "fontFamily": "-apple-system, ...",
+  "fontFamily": "-apple-system-font, ...",
   "fontSize": "16px",
-  "customCSS": ""
+  "customCSS": "",
+  "codeTheme": "github-dark",
+  "watermark": true,
+  "proxy": "",
+  "lint": { "failOn": "high" },
+  "model": { "baseUrl": "", "model": "" },
+  "typesafe": { "endpoint": "" }
 }
 ```
+
+- `theme` / `primaryColor` / `fontFamily` / `fontSize` / `customCSS`：渲染样式。
+- `codeTheme`：highlight.js 代码高亮主题，`none` 关闭；`watermark`：发布是否追加文末水印。
+- `proxy`：自建微信 API 反向代理 origin，留空直连。
+- `lint.failOn`：`lint` 默认失败阈值；`model.baseUrl` / `model.model`：模型默认接口与模型名（密钥不写这里）；`typesafe.endpoint`：覆盖 TypeSafe 上游。
+
+**优先级：命令行参数 > 环境变量 > 配置文件 > 内置默认值**；用 `welight config` 查看当前生效配置。
 
 密钥只从环境变量读取，不写入配置文件：
 
@@ -119,6 +132,7 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 | `welight ai <prompt>` | 写作助手对话，带文章上下文，可按需调用规则扫描 / 朱雀检测工具 |
 | `welight themes` | 列出可用的免费主题 |
 | `welight doctor` | 检查运行环境、配置与密钥状态 |
+| `welight config` | 打印当前生效配置与来源文件 |
 | `welight init` | 生成 `welight.config.json` 配置模板 |
 
 文件参数传 `-` 表示从 stdin 读取。`copy` 默认使用 `github-dark` 代码高亮主题，可用 `--code-theme` 指定或传 `none` 关闭。
@@ -143,14 +157,14 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 
 `title` 复用桌面端「爆款标题」提示词，调用你自己配置的 OpenAI 兼容模型：
 
-- 必需：`WELIGHT_MODEL_API_KEY`、`WELIGHT_MODEL_BASE_URL`、`WELIGHT_MODEL`（可用同名 CLI 参数覆盖）。
+- 必需：`WELIGHT_MODEL_API_KEY`（密钥）与模型接口/模型名——接口与模型名可放在配置文件的 `model` 里，也可用 `--base-url` / `--model` 覆盖。
 - `--topic` 直接指定主题；`--count` 控制数量（默认 5）；`--json` 输出 `{ titles }`。
 - 配置 `WELIGHT_TYPESAFE_KEY` 后（或 `--typesafe-key`），会用 TypeSafe 判断层按打开潜力 1-5 级评分并排序；低置信候选不计入排名。`--no-score` 可关闭评分。
 
 `ai` 是 CLI 自建的轻量 Agent（不依赖桌面端运行时）：
 
 - `welight ai "指令" --file post.md`，结果可 `--out` 写回文件、`--json` 输出；
-- 模型可按需调用 5 个只读/产物类工具：`check_wechat_rules`（规则扫描）、`detect_ai_text`（朱雀检测，需 `WELIGHT_ZHUQUE_KEY`）、`list_themes`（主题列表）、`render_article`（用主题渲染并保存 HTML）、`score_titles`（标题评分，需 `WELIGHT_TYPESAFE_KEY`）；
+- 模型可按需调用 7 个只读/产物类工具：`check_wechat_rules`（规则扫描）、`detect_ai_text`（朱雀检测）、`list_themes`（主题列表）、`article_stats`（篇幅结构统计）、`render_article`（主题渲染内联 HTML 落盘）、`render_document`（独立 HTML 落盘）、`score_titles`（标题评分）；
 - 发布等有副作用的操作**不**放进工具循环，避免模型误触发；需要发布请用 `welight publish`。
 - 默认**流式输出**（`--stream`，`--json` / `--out` 时自动关闭）；工具进度输出到 stderr，正文结果走 stdout，便于管道组合。
 

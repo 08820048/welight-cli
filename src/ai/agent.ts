@@ -13,7 +13,9 @@ const SYSTEM_PROMPT = `你是 Welight CLI 的中文写作助手，帮助用户�
 - check_wechat_rules：检查文章命中的公众号平台规则；
 - detect_ai_text：评估文章的 AI 生成占比；
 - list_themes：查看可用的免费主题；
+- article_stats：统计篇幅与结构（字数/阅读时间/标题/图片等）；
 - render_article：用指定主题渲染并保存公众号内联 HTML；
+- render_document：用指定主题渲染并保存独立 HTML（浏览器预览）；
 - score_titles：给候选标题按打开潜力评分排序。
 
 规则：

@@ -1,7 +1,7 @@
 import path from 'node:path'
 import process from 'node:process'
 import { Command, Option } from 'clipanion'
-import { loadWelightConfig } from '../config'
+import { loadWelightConfig, resolveCodeTheme, resolveProxy, resolveWatermark } from '../config'
 import { installDom } from '../dom'
 import { readInput } from '../io'
 import { publishDraft } from '../publish'
@@ -53,7 +53,7 @@ export class PublishCommand extends Command {
 
   fansCommentOnly = Option.Boolean(`--fans-comment-only`, false, { description: `仅粉丝可评论` })
 
-  watermark = Option.Boolean(`--watermark`, true, { description: `是否追加文末水印` })
+  watermark = Option.Boolean(`--watermark`, { description: `是否追加文末水印（默认取配置，默认开启；--no-watermark 关闭）` })
 
   preview = Option.Boolean(`--preview`, false, { description: `创建后轮询草稿预览链接` })
 
@@ -76,13 +76,13 @@ export class PublishCommand extends Command {
     try {
       const result = await publishDraft(markdown, {
         baseDir,
-        credentials: { appId, appSecret, proxy: this.proxy },
+        credentials: { appId, appSecret, proxy: resolveProxy(config, this.proxy) },
         theme: this.theme ?? config.theme,
         primaryColor: config.primaryColor,
         fontFamily: config.fontFamily,
         fontSize: config.fontSize,
         customCSS: config.customCSS,
-        codeTheme: this.codeTheme ?? `github-dark`,
+        codeTheme: resolveCodeTheme(config, this.codeTheme),
         title: this.title,
         author: this.author,
         digest: this.digest,
@@ -90,7 +90,7 @@ export class PublishCommand extends Command {
         cover: this.cover,
         openComment: this.openComment,
         fansCommentOnly: this.fansCommentOnly,
-        watermark: this.watermark,
+        watermark: resolveWatermark(config, this.watermark),
         preview: this.preview,
         onLog: message => this.context.stdout.write(`${message}\n`),
       })
