@@ -31,7 +31,7 @@ npx welight --help
 pnpm dlx welight --help
 ```
 
-要求 Node.js `>=22.16.0`。
+要求 Node.js `>=22.16.0`。命令 `welight` 与 `wl` 等效。
 
 ## 快速开始
 
@@ -43,8 +43,14 @@ welight setup
 # 列出可用的免费主题
 welight themes
 
-# 渲染 Markdown 为带主题样式的 HTML
-welight render post.md --theme w011 --out out.html
+# 选主题并渲染 HTML（自动写文件 + 浏览器打开）
+welight render post.md
+
+# 一键排版：按档位用 AI 重排文章结构
+welight layout post.md --in-place
+
+# 渲染并输出原始 HTML（脚本/管道）
+welight render post.md --stdout > out.html
 
 # 生成公众号内联 HTML 并复制到剪贴板（到公众号后台直接粘贴）
 welight copy post.md --theme w011
@@ -161,7 +167,8 @@ auth 名：`model` `typesafe` `zhuque` `wechat-app-id` `wechat-app-secret`（也
 
 | 命令 | 说明 |
 | --- | --- |
-| `welight render <file>` | 渲染为带主题样式的独立 HTML，可 `--out` 写文件或输出到 stdout |
+| `welight render <file>` | 选主题渲染 HTML（写文件 + 浏览器打开；`--stdout` 输出原始 HTML） |
+| `welight layout <file>` | 一键排版：按档位（auto/minimal/standard/rich）用 AI 重排结构 |
 | `welight copy <file>` | 生成公众号内联 HTML 并写入系统剪贴板，到公众号后台粘贴 |
 | `welight publish <file>` | 渲染并直连微信接口创建公众号草稿（不做正式发布） |
 | `welight lint <file>` | 扫描公众号平台规则命中，可用 `--json`/`--fail-on` 接入 CI |
@@ -176,7 +183,17 @@ auth 名：`model` `typesafe` `zhuque` `wechat-app-id` `wechat-app-secret`（也
 | `welight config [get\|set\|unset]` | 查看或修改配置 |
 | `welight init` | 生成 `welight.config.json` 配置模板 |
 
-文件参数传 `-` 表示从 stdin 读取。`copy` 默认使用 `github-dark` 代码高亮主题，可用 `--code-theme` 指定或传 `none` 关闭。
+文件参数传 `-` 表示从 stdin 读取。
+
+`render` 的默认行为：**选主题 → 写 HTML 文件 → 在浏览器打开预览**（终端不刷 HTML）。
+用 `--stdout` 或管道输出时则输出原始 HTML，便于 `> out.html` 重定向；`--out` 指定路径；`--no-open` 不自动打开浏览器。
+
+`layout`（一键排版）用 AI 重排标题层级、强调、列表等结构，保留原文事实与代码：
+
+- 档位 `--tier auto|minimal|standard|rich`；`auto` 由 TypeSafe 判断层按内容推荐（需 `WELIGHT_TYPESAFE_KEY`，不可用回退简约）。
+- `--in-place` 覆盖源文件，`--out` 写新文件，否则输出到终端（终端下会渲染 Markdown 样式）。
+
+AI 回复在终端下会**渲染 Markdown**（标题/粗体/列表/代码块带样式），不再直接显示源码。`copy` 默认使用 `github-dark` 代码高亮主题，可用 `--code-theme` 指定或传 `none` 关闭。
 
 `publish` 相关说明：
 

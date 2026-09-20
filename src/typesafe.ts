@@ -31,7 +31,14 @@ export interface TypeSafeScoreQuestion {
   criteria: string[]
 }
 
-export type TypeSafeQuestion = TypeSafeScoreQuestion
+/** Choice：criteria 为「选项键 → 选项描述」，回答的 choice 即选项键 */
+export interface TypeSafeChoiceQuestion {
+  type: `choice`
+  instructions: string
+  criteria: Record<string, string>
+}
+
+export type TypeSafeQuestion = TypeSafeScoreQuestion | TypeSafeChoiceQuestion
 
 export interface TypeSafeResponse {
   model?: string
@@ -89,4 +96,8 @@ export function answerScore(answer: TypeSafeAnswer | undefined): number | undefi
   if (!answer)
     return undefined
   return typeof answer.score === `number` && !Number.isNaN(answer.score) ? answer.score : undefined
+}
+
+export function answerChoice(answer: TypeSafeAnswer | undefined): string | undefined {
+  return typeof answer?.choice === `string` && answer.choice ? answer.choice : undefined
 }

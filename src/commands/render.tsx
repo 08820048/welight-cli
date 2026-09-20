@@ -1,66 +1,87 @@
 import fs from 'node:fs/promises'
+import path from 'node:path'
 import process from 'node:process'
 import type { Command } from 'commander'
-import { Box } from 'ink'
-import type { ReactNode } from 'react'
+import { openInBrowser } from '../browser'
 import { loadWelightConfig } from '../config'
 import { installDom } from '../dom'
+import { themeOptions } from '../engine'
+import { askSelect } from '../ink/prompts'
+import { isTui } from '../ink/runtime'
 import { readInput } from '../io'
-import { Success } from '../ink/components'
-import { executeCommand } from '../ink/runtime'
+import { isInteractive } from '../prompt'
 import { renderDocument } from '../render'
-import { ui } from '../ui'
+import { c, ui } from '../ui'
 
-interface RenderData {
-  out?: string
+function defaultOutputPath(file: string): string {
+  if (file === `-`)
+    return path.resolve(process.cwd(), `welight-preview.html`)
+  const resolved = path.resolve(file)
+  const dir = path.dirname(resolved)
+  const base = path.basename(resolved).replace(/\.[^.]+$/, ``)
+  return path.join(dir, `${base}.html`)
 }
 
 export function registerRender(program: Command): void {
   program
     .command(`render`)
-    .description(`把 Markdown 渲染为带主题样式的 HTML`)
+    .description(`选主题并渲染为 HTML，自动写文件并在浏览器打开`)
     .argument(`<file>`, `Markdown 文件路径，- 表示从 stdin 读取`)
-    .option(`-t, --theme <name>`, `免费主题名（默认取配置，见 welight themes）`)
-    .option(`-o, --out <path>`, `输出文件路径，缺省写到 stdout`)
-    .addHelpText(`after`, `\n示例:\n  $ welight render post.md --theme w011 --out out.html\n  $ cat post.md | welight render - > out.html`)
-    .action(async (file: string, options: { theme?: string, out?: string }) => {
+    .option(`-t, --theme <name>`, `主题名，省略时会让你选择（见 welight themes）`)
+    .option(`-o, --out <path>`, `输出文件路径，默认与源文件同名 .html`)
+    .option(`--stdout`, `把 HTML 输出到 stdout（脚本/管道用），不写文件、不开浏览器`)
+    .option(`--no-open`, `生成文件后不自动打开浏览器`)
+    .addHelpText(`after`, `\n终端下的默认行为：选主题 → 写 HTML 文件 → 浏览器打开预览。\n管道或 --stdout 时输出原始 HTML，便于重定向。\n\n示例:\n  $ welight render post.md\n  $ welight render post.md --theme w011 --out out.html\n  $ cat post.md | welight render - --stdout > out.html`)
+    .action(async (file: string, options: { theme?: string, out?: string, stdout?: boolean, open?: boolean }) => {
       installDom()
       const { config } = await loadWelightConfig()
-      const build = async (): Promise<string> => {
-        const markdown = await readInput(file)
-        return renderDocument(markdown, {
-          theme: options.theme ?? config.theme,
+
+      let theme = (options.theme ?? ``).trim()
+      if (!theme) {
+        if (isInteractive()) {
+          const picked = await askSelect(
+            `选择主题`,
+            themeOptions.map(option => ({
+              label: `${option.value}  ${option.label}  ${c.dim(option.desc)}`,
+              value: option.value,
+            })),
+          )
+          theme = picked ?? config.theme
+        }
+        else {
+          theme = config.theme
+        }
+      }
+
+      const markdown = await readInput(file)
+      let html: string
+      try {
+        html = renderDocument(markdown, {
+          theme,
           primaryColor: config.primaryColor,
           fontFamily: config.fontFamily,
           fontSize: config.fontSize,
           customCSS: config.customCSS,
         })
       }
-
-      // 输出 HTML 到 stdout 时必须走纯文本，避免被 Ink 折行破坏
-      if (!options.out) {
-        try {
-          process.stdout.write(await build())
-        }
-        catch (error) {
-          ui.error(error instanceof Error ? error.message : String(error))
-          process.exitCode = 1
-        }
+      catch (error) {
+        ui.error(error instanceof Error ? error.message : String(error))
+        process.exitCode = 1
         return
       }
 
-      const out = options.out
-      await executeCommand<RenderData>({
-        run: async () => {
-          await fs.writeFile(out, await build(), `utf8`)
-          return { out }
-        },
-        render: data => (
-          <Box>
-            <Success>{`已写入 ${data.out}`}</Success>
-          </Box>
-        ) as ReactNode,
-        plain: data => ui.success(`已写入 ${data.out}`),
-      })
+      // 管道 / --stdout：输出原始 HTML
+      if (options.stdout || (!isTui() && !options.out)) {
+        process.stdout.write(html)
+        return
+      }
+
+      const outPath = options.out ? path.resolve(options.out) : defaultOutputPath(file)
+      await fs.writeFile(outPath, html, `utf8`)
+
+      const shouldOpen = isInteractive() && options.open !== false
+      if (shouldOpen)
+        openInBrowser(outPath)
+      ui.success(`已生成 ${outPath}${shouldOpen ? `（已在浏览器打开）` : ``}  ${c.dim(`主题 ${theme}`)}`)
     })
 }

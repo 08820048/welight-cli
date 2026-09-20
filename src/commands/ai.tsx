@@ -5,6 +5,8 @@ import type { Command } from 'commander'
 import { Box, Static, Text, useApp } from 'ink'
 import type { ReactNode } from 'react'
 import { useRef, useState } from 'react'
+import { Markdown } from '../ink/markdown'
+import { markdownToAnsi } from '../markdown/ansi'
 import { AgentSession, runAgent } from '../ai/agent'
 import { loadWelightConfig, resolveModelSettings } from '../config'
 import { installDom } from '../dom'
@@ -120,15 +122,19 @@ function ChatTui({ settings, file }: { settings: ResolvedSettings, file?: string
       </Box>
 
       <Static items={lines}>
-        {line => (
-          <Box key={`${line.role}-${line.text.slice(0, 12)}`} marginBottom={0}>
-            {line.role === `user` && <Text color="cyan">{`你  `}</Text>}
-            {line.role === `assistant` && <Text color="green">{`AI  `}</Text>}
-            {line.role === `error` && <Text color="red">{`错  `}</Text>}
-            {line.role === `note` && <Text dimColor>{`·   `}</Text>}
-            <Text wrap="wrap">{line.text}</Text>
-          </Box>
-        )}
+        {(line) => {
+          const key = `${line.role}-${line.text.slice(0, 16)}`
+          if (line.role === `assistant`)
+            return <Box key={key} flexDirection="column" marginBottom={1}><Markdown source={line.text} /></Box>
+          return (
+            <Box key={key} marginBottom={0}>
+              {line.role === `user` && <Text color="cyan">{`你  `}</Text>}
+              {line.role === `error` && <Text color="red">{`错  `}</Text>}
+              {line.role === `note` && <Text dimColor>{`·   `}</Text>}
+              <Text wrap="wrap">{line.text}</Text>
+            </Box>
+          )
+        }}
       </Static>
 
       {streaming
@@ -200,7 +206,9 @@ async function runOnce(prompt: string, options: AiOptions, settings: ResolvedSet
     return
   }
   const content = options.file ? await readInput(options.file) : ``
-  const shouldStream = (options.stream ?? true) && !options.out && !options.json
+  const explicitStream = options.stream === true
+  const renderMarkdown = !explicitStream && !options.json && !options.out && isInteractive()
+  const shouldStream = explicitStream && !options.out && !options.json
 
   let result: string
   let streamed = false
@@ -242,6 +250,10 @@ async function runOnce(prompt: string, options: AiOptions, settings: ResolvedSet
   }
   if (options.json) {
     process.stdout.write(`${JSON.stringify({ result, model: settings.model || undefined }, null, 2)}\n`)
+    return
+  }
+  if (renderMarkdown) {
+    process.stdout.write(`${markdownToAnsi(result)}\n`)
     return
   }
   process.stdout.write(result.endsWith(`\n`) ? result : `${result}\n`)

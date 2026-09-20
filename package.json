@@ -4,7 +4,8 @@
   "description": "Welight CLI —— 微信公众号 Markdown 排版与发布命令行工具（免费开源，全部 BYOK）",
   "type": "module",
   "bin": {
-    "welight": "./dist/index.js"
+    "welight": "./dist/index.js",
+    "wl": "./dist/index.js"
   },
   "exports": {
     ".": "./dist/index.js"
