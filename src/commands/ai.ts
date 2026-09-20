@@ -37,6 +37,8 @@ export class AiCommand extends Command {
 
   maxSteps = Option.String(`--max-steps`, { description: `最大工具调用步数，默认 6` })
 
+  stream = Option.Boolean(`--stream`, true, { description: `流式输出（--json / --out 时自动关闭）` })
+
   json = Option.Boolean(`--json`, false, { description: `以 JSON 输出` })
 
   async execute(): Promise<number> {
@@ -49,6 +51,8 @@ export class AiCommand extends Command {
     const maxSteps = Number.isFinite(stepsRaw) && stepsRaw > 0 ? Math.min(Math.floor(stepsRaw), 20) : 6
 
     let result: string
+    let streamed = false
+    const shouldStream = this.stream && !this.out && !this.json
     try {
       result = await runAgent({
         prompt: this.prompt,
@@ -58,11 +62,25 @@ export class AiCommand extends Command {
         model,
         maxSteps,
         onEvent: message => this.context.stderr.write(`· ${message}\n`),
+        onDelta: shouldStream
+          ? (text) => {
+              streamed = true
+              this.context.stdout.write(text)
+            }
+          : undefined,
       })
     }
     catch (error) {
       this.context.stderr.write(`错误：${error instanceof Error ? error.message : String(error)}\n`)
       return 1
+    }
+
+    if (shouldStream) {
+      if (streamed)
+        this.context.stdout.write(`\n`)
+      else if (result)
+        this.context.stdout.write(result.endsWith(`\n`) ? result : `${result}\n`)
+      return 0
     }
 
     if (this.out) {

@@ -110,6 +110,121 @@ export async function chatCompletion(options: ChatOptions): Promise<string> {
   return content.trim()
 }
 
+interface StreamDelta {
+  content?: string | null
+  tool_calls?: Array<{
+    index?: number
+    id?: string
+    type?: string
+    function?: { name?: string, arguments?: string }
+  }>
+}
+
+interface StreamChunk {
+  choices?: Array<{ delta?: StreamDelta }>
+  error?: { message?: string }
+}
+
+/** 流式调用一次模型：增量内容通过 onDelta 回调，返回拼接后的完整 assistant 消息 */
+export async function chatCompletionStream(
+  options: ChatOptions,
+  onDelta: (text: string) => void,
+): Promise<ChatMessage> {
+  const baseUrl = assertConfig(options)
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 120_000)
+  try {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: `POST`,
+      headers: {
+        'content-type': `application/json`,
+        'authorization': `Bearer ${options.apiKey.trim()}`,
+      },
+      body: JSON.stringify({
+        model: options.model.trim(),
+        messages: options.messages,
+        tools: options.tools?.length ? options.tools : undefined,
+        tool_choice: options.tools?.length ? `auto` : undefined,
+        temperature: options.temperature ?? 0.7,
+        max_tokens: options.maxTokens,
+        stream: true,
+      }),
+      signal: controller.signal,
+    })
+
+    if (!response.ok || !response.body) {
+      const data = await response.json().catch(() => null) as StreamChunk | null
+      if (response.status === 401)
+        throw new Error(`模型 API Key 无效或已过期`)
+      throw new Error(data?.error?.message || `模型接口 HTTP ${response.status}`)
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    const message: ChatMessage = { role: `assistant`, content: `` }
+    const toolCalls: ToolCall[] = []
+    let buffer = ``
+
+    const handleChunk = (chunk: StreamChunk) => {
+      const delta = chunk.choices?.[0]?.delta
+      if (!delta)
+        return
+      if (typeof delta.content === `string` && delta.content) {
+        message.content = `${message.content ?? ``}${delta.content}`
+        onDelta(delta.content)
+      }
+      if (Array.isArray(delta.tool_calls)) {
+        for (const part of delta.tool_calls) {
+          const index = part.index ?? 0
+          const existing = toolCalls[index] ?? (toolCalls[index] = { id: ``, type: `function`, function: { name: ``, arguments: `` } })
+          if (part.id)
+            existing.id = part.id
+          if (part.function?.name)
+            existing.function.name = part.function.name
+          if (part.function?.arguments)
+            existing.function.arguments += part.function.arguments
+        }
+      }
+    }
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done)
+        break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split(`\n`)
+      buffer = lines.pop() ?? ``
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed.startsWith(`data:`))
+          continue
+        const payload = trimmed.slice(5).trim()
+        if (!payload || payload === `[DONE]`)
+          continue
+        try {
+          handleChunk(JSON.parse(payload) as StreamChunk)
+        }
+        catch {
+          // 忽略无法解析的片段
+        }
+      }
+    }
+
+    if (toolCalls.length > 0)
+      message.tool_calls = toolCalls
+    return message
+  }
+  catch (error) {
+    if (error instanceof Error && error.name === `AbortError`)
+      throw new Error(`模型请求超时`)
+    throw error
+  }
+  finally {
+    clearTimeout(timeout)
+  }
+}
+
 /** 解析模型返回的标题列表：去掉编号/项目符号/空行/引号 */
 export function parseTitleList(raw: string): string[] {
   return raw

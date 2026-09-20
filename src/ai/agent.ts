@@ -3,7 +3,7 @@
  */
 
 import type { ChatMessage, ToolDef } from '../modelClient'
-import { chatCompletionMessage } from '../modelClient'
+import { chatCompletionMessage, chatCompletionStream } from '../modelClient'
 import type { AgentDocument } from './tools'
 import { AI_TOOLS } from './tools'
 
@@ -27,6 +27,8 @@ export interface AgentOptions {
   maxSteps?: number
   timeoutMs?: number
   onEvent?: (message: string) => void
+  /** 提供后使用流式请求，增量内容实时回调 */
+  onDelta?: (text: string) => void
 }
 
 function buildUserMessage(prompt: string, content: string): string {
@@ -61,14 +63,17 @@ export async function runAgent(options: AgentOptions): Promise<string> {
   const maxSteps = options.maxSteps ?? 6
 
   for (let step = 0; step < maxSteps; step += 1) {
-    const message = await chatCompletionMessage({
+    const requestOptions = {
       baseUrl: options.baseUrl,
       apiKey: options.apiKey,
       model: options.model,
       messages,
       tools: toolDefs,
       timeoutMs: options.timeoutMs,
-    })
+    }
+    const message = options.onDelta
+      ? await chatCompletionStream(requestOptions, options.onDelta)
+      : await chatCompletionMessage(requestOptions)
     messages.push(message)
 
     if (message.tool_calls?.length) {

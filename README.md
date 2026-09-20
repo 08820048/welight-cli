@@ -99,7 +99,8 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 | `WELIGHT_MODEL_API_KEY` | 模型 API Key（Welight AI / 标题推荐） |
 | `WELIGHT_MODEL_BASE_URL` | OpenAI 兼容接口地址，如 `https://api.deepseek.com/v1` |
 | `WELIGHT_MODEL` | 模型名，如 `deepseek-chat` |
-| `WELIGHT_TYPESAFE_KEY` | TypeSafe System One 判断层（排版自动档、语义复核、标题评分） |
+| `WELIGHT_TYPESAFE_KEY` | TypeSafe System One 判断层（标题评分等） |
+| `WELIGHT_TYPESAFE_ENDPOINT` | 可选，覆盖 TypeSafe 上游地址（默认官方） |
 | `WELIGHT_ZHUQUE_KEY` | 腾讯 EdgeOne / 朱雀 AIGC 检测 |
 | `WELIGHT_WECHAT_APP_ID` / `WELIGHT_WECHAT_APP_SECRET` | 微信公众号 |
 
@@ -144,12 +145,13 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 
 - 必需：`WELIGHT_MODEL_API_KEY`、`WELIGHT_MODEL_BASE_URL`、`WELIGHT_MODEL`（可用同名 CLI 参数覆盖）。
 - `--topic` 直接指定主题；`--count` 控制数量（默认 5）；`--json` 输出 `{ titles }`。
+- 配置 `WELIGHT_TYPESAFE_KEY` 后（或 `--typesafe-key`），会用 TypeSafe 判断层按打开潜力 1-5 级评分并排序；低置信候选不计入排名。`--no-score` 可关闭评分。
 
 `ai` 是 CLI 自建的轻量 Agent（不依赖桌面端运行时）：
 
 - `welight ai "指令" --file post.md`，结果可 `--out` 写回文件、`--json` 输出；
 - 模型可按需调用 `check_wechat_rules`（本地规则扫描）与 `detect_ai_text`（朱雀检测，需 `WELIGHT_ZHUQUE_KEY`）；
-- 工具进度输出到 stderr，正文结果走 stdout，便于管道组合。
+- 默认**流式输出**（`--stream`，`--json` / `--out` 时自动关闭）；工具进度输出到 stderr，正文结果走 stdout，便于管道组合。
 
 ## 开发
 

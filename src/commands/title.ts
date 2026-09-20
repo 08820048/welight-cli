@@ -3,6 +3,8 @@ import { Command, Option } from 'clipanion'
 import { TITLE_GENERATOR_PROMPT } from '../engine'
 import { readInput } from '../io'
 import { chatCompletion, parseTitleList } from '../modelClient'
+import { scoreTitles } from '../titleScore'
+import { resolveTypesafeEndpoint } from '../typesafe'
 
 const DEFAULT_COUNT = 5
 
@@ -38,6 +40,10 @@ export class TitleCommand extends Command {
   apiKey = Option.String(`--api-key`, { description: `模型 API Key（默认读 WELIGHT_MODEL_API_KEY）` })
 
   json = Option.Boolean(`--json`, false, { description: `以 JSON 输出` })
+
+  score = Option.Boolean(`--score`, true, { description: `用 TypeSafe 判断层给候选标题打分排序` })
+
+  typesafeKey = Option.String(`--typesafe-key`, { description: `TypeSafe API Key（默认读 WELIGHT_TYPESAFE_KEY）` })
 
   async execute(): Promise<number> {
     const apiKey = (this.apiKey ?? process.env.WELIGHT_MODEL_API_KEY ?? ``).trim()
@@ -81,8 +87,37 @@ export class TitleCommand extends Command {
       return 1
     }
 
+    const typesafeKey = (this.typesafeKey ?? process.env.WELIGHT_TYPESAFE_KEY ?? ``).trim()
+    let scoreReport = null as Awaited<ReturnType<typeof scoreTitles>>
+    if (this.score && titles.length > 0) {
+      if (typesafeKey) {
+        scoreReport = await scoreTitles(titles, { apiKey: typesafeKey, endpoint: resolveTypesafeEndpoint() })
+        if (!scoreReport)
+          this.context.stderr.write(`· 判断层评分不可用，已返回未评分候选\n`)
+      }
+      else {
+        this.context.stderr.write(`· 未配置 WELIGHT_TYPESAFE_KEY，跳过标题评分\n`)
+      }
+    }
+
     if (this.json) {
-      this.context.stdout.write(`${JSON.stringify({ titles, model: model || undefined }, null, 2)}\n`)
+      this.context.stdout.write(`${JSON.stringify({
+        titles,
+        scored: Boolean(scoreReport),
+        ranking: scoreReport?.ranking,
+        unscored: scoreReport?.unscored,
+        top: scoreReport?.top,
+        judgeModel: scoreReport?.model,
+        model: model || undefined,
+      }, null, 2)}\n`)
+    }
+    else if (scoreReport) {
+      const lines = scoreReport.ranking.map(
+        (entry, index) => `${index + 1}. [${entry.score?.toFixed(2)}] ${entry.title}`,
+      )
+      if (scoreReport.unscored.length > 0)
+        lines.push(`（低置信未评分：${scoreReport.unscored.map(entry => entry.title).join(`；`)}）`)
+      this.context.stdout.write(`${lines.join(`\n`)}\n`)
     }
     else {
       this.context.stdout.write(`${titles.join(`\n`)}\n`)
