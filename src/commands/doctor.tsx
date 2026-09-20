@@ -8,6 +8,7 @@ import { installDom } from '../dom'
 import { themeOptions } from '../engine'
 import { Hint, KeyValueList, Title } from '../ink/components'
 import { executeCommand } from '../ink/runtime'
+import { providerLabel } from '../modelSetup'
 import { c, printKeyValues } from '../ui'
 
 interface DoctorData {
@@ -28,6 +29,7 @@ async function collect(): Promise<DoctorData> {
       [`配置文件`, configFile ?? `未创建`],
       [`凭据文件`, credentialsFilePath()],
       [`免费主题数`, String(themeOptions.length)],
+      [`模型提供商`, config.model.provider ? providerLabel(config.model.provider) : `未配置`],
       [`模型接口`, config.model.baseUrl || `未配置`],
       [`模型名`, config.model.model || `未配置`],
       [`模型密钥`, process.env.WELIGHT_MODEL_API_KEY ? yes : no],

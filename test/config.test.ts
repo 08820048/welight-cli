@@ -41,7 +41,7 @@ describe(`config`, () => {
     expect(config.watermark).toBe(true)
     expect(config.proxy).toBe(``)
     expect(config.lint.failOn).toBe(`high`)
-    expect(config.model).toEqual({ baseUrl: ``, model: `` })
+    expect(config.model).toEqual({ provider: ``, baseUrl: ``, model: `` })
     expect(config.typesafe.endpoint).toBe(``)
   })
 

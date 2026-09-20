@@ -111,9 +111,11 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 **1. 配置向导（推荐）**
 
 ```bash
-welight model     # 只配置模型（接口地址 / 模型名 / API Key）
+welight model     # 选提供商 → 选模型 → 填密钥（内置预设，无需手填接口地址）
 welight setup     # 完整向导：模型 + TypeSafe + 朱雀 + 公众号 + 主题
 ```
+
+内置提供商：DeepSeek / OpenAI / 通义千问 / 智谱 AI / Kimi / MiniMax，以及「自定义接口」。
 
 逐步提示：模型接口 / 模型名 / 模型 Key / TypeSafe / 朱雀 / 公众号 / 默认主题。密钥不回显，直接回车跳过任意一项。不需要任何前置配置。
 
@@ -167,7 +169,7 @@ auth 名：`model` `typesafe` `zhuque` `wechat-app-id` `wechat-app-secret`（也
 | `welight title <file>` | 生成候选标题（BYOK 模型），也可用 `--topic` 直接给主题 |
 | `welight ai <prompt>` | 写作助手对话，带文章上下文，可按需调用工具 |
 | `welight setup` | 配置向导：逐步完成模型 / 朱雀 / TypeSafe / 公众号等配置（无需 AI） |
-| `welight model` | 配置模型（接口地址 / 模型名 / API Key） |
+| `welight model` | 配置模型（选提供商 → 选模型 → 填密钥） |
 | `welight auth <list\|set\|remove>` | 管理本地凭据（密钥） |
 | `welight themes` | 列出可用的免费主题 |
 | `welight doctor` | 检查运行环境、配置与密钥状态 |

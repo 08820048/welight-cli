@@ -4,7 +4,7 @@
  */
 
 import type { ReactNode } from 'react'
-import { ConfirmInput, PasswordInput, TextInput } from '@inkjs/ui'
+import { ConfirmInput, PasswordInput, Select, TextInput } from '@inkjs/ui'
 import { Box, Text, render, useApp } from 'ink'
 import { isTui } from './runtime'
 
@@ -53,6 +53,29 @@ export async function askPassword(message: string): Promise<string | null> {
             onSubmit={(value) => {
               exit()
               resolve((value ?? ``).trim())
+            }}
+          />
+        </Frame>
+      )
+    }
+    render(<Prompt />)
+  })
+}
+
+/** 选择列表；取消返回 null */
+export async function askSelect(message: string, options: Array<{ label: string, value: string }>): Promise<string | null> {
+  if (!isTui())
+    return null
+  return new Promise<string | null>((resolve) => {
+    function Prompt() {
+      const { exit } = useApp()
+      return (
+        <Frame message={message}>
+          <Select
+            options={options}
+            onChange={(value) => {
+              exit()
+              resolve(String(value))
             }}
           />
         </Frame>

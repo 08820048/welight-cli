@@ -1,71 +1,123 @@
 /**
- * 模型配置向导：接口地址 / 模型名 / API Key 一次配齐。
+ * 模型配置：内置提供商预设，用户只需「选提供商 → 选模型 → 填密钥」。
+ *
+ * 提供商与模型清单来自 GUI 的 serviceOptions（导出到 src/engine）。
  * 被 `welight model`、`welight setup`、`welight auth set model` 复用。
  *
  * 取值规则：
  * - 命令行传入的值优先；
- * - 交互终端下会提示（onlyMissing=true 时只补缺失项）；
- * - 非交互终端不提示，用已有配置补齐，仍缺失则报错并给出命令。
+ * - 交互终端用选择列表引导（onlyMissing=true 时只补缺失项）；
+ * - 非交互终端不提示，用预设/已有值补齐，仍缺失则报错并给出命令。
  */
 
 import process from 'node:process'
 import { loadWelightConfig, saveConfigValues } from './config'
 import { saveCredential } from './credentials'
-import { askPassword, askText } from './ink/prompts'
+import { serviceOptions } from './engine'
+import { askPassword, askSelect, askText } from './ink/prompts'
 import { isInteractive } from './prompt'
-import { ui } from './ui'
+import { c, ui } from './ui'
 
 export interface ModelInput {
+  provider?: string
   baseUrl?: string
   model?: string
   apiKey?: string
 }
 
+export function findServiceOption(provider: string) {
+  return serviceOptions.find(option => option.value === provider)
+}
+
+export function providerLabel(provider: string): string {
+  return findServiceOption(provider)?.label ?? provider
+}
+
 export async function configureModel(input: ModelInput = {}, options: { onlyMissing?: boolean } = {}): Promise<boolean> {
   const { config } = await loadWelightConfig()
+  const interactive = isInteractive()
+  const onlyMissing = Boolean(options.onlyMissing)
+
+  const existingProvider = config.model.provider.trim()
   const existingBaseUrl = config.model.baseUrl.trim()
   const existingModel = config.model.model.trim()
   const existingKey = (process.env.WELIGHT_MODEL_API_KEY ?? ``).trim()
-  const interactive = isInteractive()
 
+  let provider = (input.provider ?? existingProvider).trim()
   let baseUrl = (input.baseUrl ?? ``).trim()
   let model = (input.model ?? ``).trim()
   let apiKey = (input.apiKey ?? ``).trim()
 
-  const shouldPrompt = (provided: string, existing: string): boolean =>
-    !provided && (options.onlyMissing ? !existing : interactive)
+  // 是否需要让用户选提供商
+  const needPickProvider = interactive
+    && !input.provider
+    && (!onlyMissing ? true : (!existingProvider && !existingBaseUrl))
 
-  if (shouldPrompt(baseUrl, existingBaseUrl))
-    baseUrl = ((await askText(`模型接口地址（OpenAI 兼容）`, existingBaseUrl || `https://api.deepseek.com/v1`)) ?? ``).trim()
-  if (shouldPrompt(model, existingModel))
-    model = ((await askText(`模型名`, existingModel || `deepseek-chat`)) ?? ``).trim()
-  if (shouldPrompt(apiKey, existingKey))
+  if (needPickProvider) {
+    const picked = await askSelect(
+      `选择模型提供商`,
+      serviceOptions.map(option => ({
+        label: option.value === `custom` ? `${option.label}（自定义接口）` : `${option.label}  ${c.dim(option.endpoint)}`,
+        value: option.value,
+      })),
+    )
+    provider = picked ?? provider
+  }
+
+  const preset = findServiceOption(provider)
+
+  if (preset && preset.value !== `custom`) {
+    if (!baseUrl)
+      baseUrl = preset.endpoint
+    if (!model) {
+      if (interactive && (!onlyMissing || !existingModel)) {
+        const modelOptions = preset.models.map(name => ({ label: name, value: name }))
+        modelOptions.push({ label: `自定义模型名…`, value: `__custom__` })
+        const picked = await askSelect(`选择模型`, modelOptions)
+        model = picked === `__custom__` ? ((await askText(`模型名`)) ?? ``).trim() : (picked ?? ``)
+      }
+      else {
+        model = existingModel || preset.models[0] || ``
+      }
+    }
+  }
+  else {
+    if (interactive && !baseUrl && (!onlyMissing || !existingBaseUrl))
+      baseUrl = ((await askText(`模型接口地址（OpenAI 兼容）`, existingBaseUrl || `https://api.openai.com/v1`)) ?? ``).trim()
+    if (!baseUrl)
+      baseUrl = existingBaseUrl
+    if (interactive && !model && (!onlyMissing || !existingModel))
+      model = ((await askText(`模型名`, existingModel || ``)) ?? ``).trim()
+    if (!model)
+      model = existingModel
+  }
+
+  if (interactive && !apiKey && (!onlyMissing || !existingKey))
     apiKey = ((await askPassword(`模型 API Key`)) ?? ``).trim()
 
+  const finalProvider = provider || existingProvider
   const finalBaseUrl = baseUrl || existingBaseUrl
   const finalModel = model || existingModel
   const hasKey = Boolean(apiKey || existingKey)
 
   const missing: string[] = []
   if (!finalBaseUrl)
-    missing.push(`模型接口(model.baseUrl)`)
+    missing.push(`模型接口地址`)
   if (!finalModel)
-    missing.push(`模型名(model.model)`)
+    missing.push(`模型名`)
   if (!hasKey)
     missing.push(`模型密钥`)
 
   if (missing.length > 0 && !interactive) {
     ui.error(
       `模型配置不完整，缺少：${missing.join(`、`)}。请执行：\n`
-      + `  welight config set model.baseUrl <url>\n`
-      + `  welight config set model.model <name>\n`
+      + `  welight model --provider <deepseek|openai|qwen|bigmodel|moonshot|minimax>\n`
       + `  welight auth set model`,
     )
     return false
   }
 
-  if (finalBaseUrl || finalModel)
-    saveConfigValues({ model: { baseUrl: finalBaseUrl, model: finalModel } })
+  saveConfigValues({ model: { provider: finalProvider, baseUrl: finalBaseUrl, model: finalModel } })
   if (apiKey)
     saveCredential(`WELIGHT_MODEL_API_KEY`, apiKey)
 
@@ -74,6 +126,6 @@ export async function configureModel(input: ModelInput = {}, options: { onlyMiss
     return false
   }
 
-  ui.success(`模型配置完成：${finalModel} @ ${finalBaseUrl}`)
+  ui.success(`模型配置完成：${providerLabel(finalProvider) || `自定义`} · ${finalModel}`)
   return true
 }

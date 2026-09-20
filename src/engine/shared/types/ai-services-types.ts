@@ -4,7 +4,9 @@
  * synced from wlight@61d1500d
  * 重新生成：node scripts/export-engine.mjs
  */
-export * from './common'
-export * from './renderer-types'
-export * from './wechat-rules'
-export * from './ai-services-types'
+export interface ServiceOption {
+  value: string
+  label: string
+  endpoint: string
+  models: string[]
+}

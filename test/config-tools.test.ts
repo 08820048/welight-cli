@@ -82,7 +82,7 @@ describe(`saveConfigValues`, () => {
 
     const second = saveConfigValues({ watermark: false, model: { baseUrl: `https://api.deepseek.com/v1` } }, dir)
     expect(second.config.watermark).toBe(false)
-    expect(second.config.model).toEqual({ baseUrl: `https://api.deepseek.com/v1`, model: `deepseek-chat` })
+    expect(second.config.model).toEqual({ provider: ``, baseUrl: `https://api.deepseek.com/v1`, model: `deepseek-chat` })
   })
 
   it(`拒绝未知配置键`, () => {

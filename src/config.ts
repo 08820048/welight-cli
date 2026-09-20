@@ -20,6 +20,8 @@ const lintSchema = z.object({
 })
 
 const modelSchema = z.object({
+  /** 提供商 id（如 deepseek / openai / qwen），自定义时为空 */
+  provider: z.string().default(``),
   /** OpenAI 兼容接口地址（密钥不在此配置） */
   baseUrl: z.string().default(``),
   /** 模型名 */
@@ -46,7 +48,7 @@ export const configSchema = z.object({
   /** 自建微信 API 反向代理 origin，留空则直连 */
   proxy: z.string().default(``),
   lint: lintSchema.default({ failOn: `high` }),
-  model: modelSchema.default({ baseUrl: ``, model: `` }),
+  model: modelSchema.default({ provider: ``, baseUrl: ``, model: `` }),
   typesafe: typesafeSchema.default({ endpoint: `` }),
 })
 
@@ -191,6 +193,7 @@ export const CONFIG_PATHS = [
   `watermark`,
   `proxy`,
   `lint.failOn`,
+  `model.provider`,
   `model.baseUrl`,
   `model.model`,
   `typesafe.endpoint`,
