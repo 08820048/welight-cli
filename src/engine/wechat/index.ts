@@ -4,6 +4,4 @@
  * synced from wlight@d9c82255
  * 重新生成：node scripts/export-engine.mjs
  */
-// 主渲染器导出
-export * from './renderer-impl'
-export type { RendererAPI } from '../shared/types'
+export * from './inline'

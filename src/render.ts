@@ -47,7 +47,8 @@ export function buildThemeCss(options: RenderOptions = {}): string {
   const theme = assertFreeTheme(options.theme ?? DEFAULT_CONFIG.theme)
   const variables = generateCSSVariables({
     primaryColor: options.primaryColor ?? DEFAULT_CONFIG.primaryColor,
-    fontFamily: options.fontFamily ?? DEFAULT_CONFIG.fontFamily,
+    // 双引号会在内联到 style="..." 时破坏属性，统一降级为单引号
+    fontFamily: (options.fontFamily ?? DEFAULT_CONFIG.fontFamily).replace(/"/g, `'`),
     fontSize: options.fontSize ?? DEFAULT_CONFIG.fontSize,
   })
   const themeCSS = themeMap[theme] ?? ``

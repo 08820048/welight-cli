@@ -1,16 +1,9 @@
 import fs from 'node:fs/promises'
-import process from 'node:process'
 import { Command, Option } from 'clipanion'
 import { loadWelightConfig } from '../config'
 import { installDom } from '../dom'
+import { readInput } from '../io'
 import { renderDocument } from '../render'
-
-async function readStdin(): Promise<string> {
-  const chunks: Buffer[] = []
-  for await (const chunk of process.stdin)
-    chunks.push(Buffer.from(chunk))
-  return Buffer.concat(chunks).toString(`utf8`)
-}
 
 export class RenderCommand extends Command {
   static paths = [[`render`]]
@@ -42,9 +35,7 @@ export class RenderCommand extends Command {
     installDom()
 
     const { config } = await loadWelightConfig()
-    const markdown = this.file === `-`
-      ? await readStdin()
-      : await fs.readFile(this.file, `utf8`)
+    const markdown = await readInput(this.file)
 
     let html: string
     try {

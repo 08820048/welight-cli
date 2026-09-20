@@ -1,5 +1,6 @@
 import { Builtins, Cli } from 'clipanion'
 import { VERSION } from './version'
+import { CopyCommand } from './commands/copy'
 import { DoctorCommand } from './commands/doctor'
 import { InitCommand } from './commands/init'
 import { RenderCommand } from './commands/render'
@@ -13,6 +14,7 @@ export function createCli(): Cli {
   })
 
   cli.register(RenderCommand)
+  cli.register(CopyCommand)
   cli.register(ThemesCommand)
   cli.register(DoctorCommand)
   cli.register(InitCommand)

@@ -45,6 +45,9 @@ welight themes
 # 渲染 Markdown 为带主题样式的 HTML
 welight render post.md --theme w011 --out out.html
 
+# 生成公众号内联 HTML 并复制到剪贴板（到公众号后台直接粘贴）
+welight copy post.md --theme w011
+
 # 从管道读取，输出到 stdout
 cat post.md | welight render - > out.html
 
@@ -82,6 +85,20 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 | `WELIGHT_WECHAT_APP_ID` / `WELIGHT_WECHAT_APP_SECRET` | 微信公众号 |
 
 > CLI 不提供官方微信 API 代理。发布相关命令直连 `api.weixin.qq.com`，需要你把当前网络出口 IP 加入公众号后台的 IP 白名单（报错 `40164` 即为未加白名单）。CI 环境出口 IP 不稳定，请自行准备固定出口。
+
+## 命令
+
+| 命令 | 说明 |
+| --- | --- |
+| `welight render <file>` | 渲染为带主题样式的独立 HTML，可 `--out` 写文件或输出到 stdout |
+| `welight copy <file>` | 生成公众号内联 HTML 并写入系统剪贴板，到公众号后台粘贴 |
+| `welight themes` | 列出可用的免费主题 |
+| `welight doctor` | 检查运行环境、配置与密钥状态 |
+| `welight init` | 生成 `welight.config.json` 配置模板 |
+
+文件参数传 `-` 表示从 stdin 读取。`copy` 默认使用 `github-dark` 代码高亮主题，可用 `--code-theme` 指定或传 `none` 关闭。
+
+> 发布、规则检查、朱雀检测、标题推荐、Welight AI 等命令正在开发中。
 
 ## 开发
 

@@ -11,7 +11,7 @@ export const configSchema = z.object({
   primaryColor: z.string().default(`#4876b8`),
   fontFamily: z
     .string()
-    .default(`-apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif`),
+    .default(`-apple-system-font,BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB, Microsoft YaHei UI, Microsoft YaHei, Arial, sans-serif`),
   fontSize: z.string().default(`16px`),
   customCSS: z.string().default(``),
 })
