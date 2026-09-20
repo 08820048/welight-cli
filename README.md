@@ -189,6 +189,9 @@ auth 名：`model` `typesafe` `zhuque` `wechat-app-id` `wechat-app-secret`（也
 `render` 的默认行为：**选主题 → 写 HTML 文件 → 在浏览器打开预览**（终端不刷 HTML）。
 用 `--stdout` 或管道输出时则输出原始 HTML，便于 `> out.html` 重定向；`--out` 指定路径；`--no-open` 不自动打开浏览器。
 
+**主题记忆（预览什么发什么）**：`render` 会记住该文件使用的主题，`publish` / `copy` 未显式传 `--theme` 时默认复用。
+优先级：`--theme` > 该文件预览时记忆的主题 > 配置 `theme`。存于 `~/.config/welight/theme-memory.json`。
+
 `layout`（一键排版）用 AI 重排标题层级、强调、列表等结构，保留原文事实与代码：
 
 - 档位 `--tier auto|minimal|standard|rich`；`auto` 由 TypeSafe 判断层按内容推荐（需 `WELIGHT_TYPESAFE_KEY`，不可用回退简约）。
