@@ -1,13 +1,10 @@
 import process from 'node:process'
 import type { Command } from 'commander'
-import { Box } from 'ink'
-import type { ReactNode } from 'react'
 import { copyRichHtml } from '../clipboard'
 import { loadWelightConfig, resolveCodeTheme } from '../config'
 import { installDom } from '../dom'
 import { readInput } from '../io'
-import { Success, Warning } from '../ink/components'
-import { executeCommand } from '../ink/runtime'
+import { p, presentCommand } from '../present'
 import { ui } from '../ui'
 import { buildWeChatInlineHtml, htmlToPlainText } from '../wechat'
 
@@ -27,7 +24,8 @@ export function registerCopy(program: Command): void {
       installDom()
       const { config } = await loadWelightConfig()
 
-      await executeCommand<CopyData>({
+      const data = await presentCommand<CopyData>({
+        spinner: `生成并写入剪贴板…`,
         run: async () => {
           const markdown = await readInput(file)
           const html = buildWeChatInlineHtml(markdown, {
@@ -41,17 +39,17 @@ export function registerCopy(program: Command): void {
           const result = await copyRichHtml(html, htmlToPlainText(html))
           return { html: result.html }
         },
-        render: data => (
-          <Box flexDirection="column">
-            <Success>已复制到剪贴板，请粘贴到公众号后台编辑器</Success>
-            {data.html ? null : <Warning>未能写入 HTML 格式，仅写入了纯文本</Warning>}
-          </Box>
-        ) as ReactNode,
-        plain: (data) => {
-          if (!data.html)
+        view: (result) => {
+          p.log.success(`已复制到剪贴板，请粘贴到公众号后台编辑器`)
+          if (!result.html)
+            p.log.warn(`未能写入 HTML 格式，仅写入了纯文本`)
+        },
+        plain: (result) => {
+          if (!result.html)
             ui.warn(`未能写入 HTML 格式，仅写入了纯文本`)
           ui.success(`已复制到剪贴板，请粘贴到公众号后台编辑器`)
         },
       })
+      void data
     })
 }

@@ -11,17 +11,46 @@ export function isInteractive(): boolean {
 }
 
 /** 普通文本输入；取消返回 null */
-export async function promptInput(message: string): Promise<string | null> {
-  const value = await p.text({ message, placeholder: `输入内容，回车确认` })
+export async function askText(message: string, placeholder?: string, initialValue?: string): Promise<string | null> {
+  const value = await p.text({ message, placeholder, initialValue })
   if (p.isCancel(value))
     return null
   return String(value).trim()
 }
 
 /** 密钥输入（不回显）；取消返回 null */
-export async function promptSecret(message: string): Promise<string | null> {
+export async function askPassword(message: string): Promise<string | null> {
   const value = await p.password({ message })
   if (p.isCancel(value))
     return null
   return String(value).trim()
 }
+
+/** 是否确认；取消返回 false */
+export async function askConfirm(message: string, initialValue = true): Promise<boolean> {
+  const value = await p.confirm({ message, initialValue })
+  if (p.isCancel(value))
+    return false
+  return Boolean(value)
+}
+
+export interface SelectOption {
+  value: string
+  label: string
+  hint?: string
+}
+
+/** 单选；取消返回 null */
+export async function askSelect(message: string, options: SelectOption[]): Promise<string | null> {
+  const value = await p.select({
+    message,
+    options: options.map(option => ({ value: option.value, label: option.label, hint: option.hint })),
+  })
+  if (p.isCancel(value))
+    return null
+  return String(value)
+}
+
+/** 兼容旧调用名 */
+export const promptInput = askText
+export const promptSecret = askPassword

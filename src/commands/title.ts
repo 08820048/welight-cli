@@ -1,13 +1,10 @@
 import process from 'node:process'
 import type { Command } from 'commander'
-import { Box, Text } from 'ink'
-import type { ReactNode } from 'react'
 import { loadWelightConfig, resolveModelSettings, resolveTypesafeEndpoint } from '../config'
 import { TITLE_GENERATOR_PROMPT } from '../engine'
 import { readInput } from '../io'
-import { Hint, Title } from '../ink/components'
-import { executeCommand } from '../ink/runtime'
 import { chatCompletion, parseTitleList } from '../modelClient'
+import { p, presentCommand } from '../present'
 import { scoreTitles } from '../titleScore'
 import type { TitleScoreReport } from '../titleScore'
 import { c, ui } from '../ui'
@@ -18,35 +15,6 @@ interface TitleData {
   titles: string[]
   scoreReport: TitleScoreReport | null
   warned?: string
-}
-
-function View({ data }: { data: TitleData }): ReactNode {
-  return (
-    <Box flexDirection="column">
-      <Title subtitle={data.scoreReport ? `TypeSafe 评分：${data.scoreReport.model ?? `未知模型`}` : undefined}>候选标题</Title>
-      {data.scoreReport
-        ? (
-            <Box flexDirection="column">
-              {data.scoreReport.ranking.map((entry, index) => (
-                <Box key={entry.title}>
-                  <Box width={4}>
-                    <Text dimColor>{`${index + 1}.`}</Text>
-                  </Box>
-                  <Box width={9}>
-                    <Text color="yellow">{`[${entry.score?.toFixed(2)}]`}</Text>
-                  </Box>
-                  <Text>{entry.title}</Text>
-                </Box>
-              ))}
-              {data.scoreReport.unscored.length > 0
-                ? <Text dimColor>{`低置信未评分：${data.scoreReport.unscored.map(e => e.title).join(`；`)}`}</Text>
-                : null}
-            </Box>
-          )
-        : data.titles.map(title => <Text key={title}>{`· ${title}`}</Text>)}
-      {data.warned ? <Hint>{data.warned}</Hint> : null}
-    </Box>
-  )
 }
 
 export function registerTitle(program: Command): void {
@@ -148,9 +116,24 @@ export function registerTitle(program: Command): void {
         return
       }
 
-      await executeCommand<TitleData>({
+      await presentCommand<TitleData>({
+        spinner: `生成标题…`,
         run,
-        render: data => <View data={data} />,
+        view: (data) => {
+          if (data.warned)
+            p.log.warn(data.warned)
+          if (data.scoreReport) {
+            data.scoreReport.ranking.forEach((entry, index) => {
+              process.stdout.write(`  ${c.bold(`${index + 1}.`)} ${c.yellow(`[${entry.score?.toFixed(2)}]`)} ${entry.title}\n`)
+            })
+            if (data.scoreReport.unscored.length > 0)
+              process.stdout.write(`  ${c.dim(`低置信未评分：${data.scoreReport.unscored.map(e => e.title).join(`；`)}`)}\n`)
+          }
+          else {
+            for (const title of data.titles)
+              process.stdout.write(`  · ${title}\n`)
+          }
+        },
         plain: (data) => {
           if (data.warned)
             ui.warn(data.warned)

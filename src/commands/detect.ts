@@ -1,12 +1,9 @@
 import process from 'node:process'
 import type { Command } from 'commander'
-import { Box, Text } from 'ink'
-import type { ReactNode } from 'react'
 import type { ZhuqueDetectReport } from '../engine'
 import { ZHUQUE_LABEL_NAMES } from '../engine'
 import { readInput } from '../io'
-import { KeyValueList, Title } from '../ink/components'
-import { executeCommand } from '../ink/runtime'
+import { kvLines, note, presentCommand } from '../present'
 import { c, printKeyValues, ui } from '../ui'
 import { aiRatio, detectAiText } from '../zhuqueApi'
 
@@ -17,36 +14,6 @@ function percent(value: number | undefined): string {
 interface DetectData {
   report: ZhuqueDetectReport
   ratio: number
-}
-
-function View({ data }: { data: DetectData }): ReactNode {
-  const labels = data.report.result.labels_ratio ?? {}
-  const segments = data.report.result.segment_labels ?? []
-  return (
-    <Box flexDirection="column">
-      <Title subtitle={`送检 ${data.report.detectedChars} 字${data.report.truncated ? `（已截断）` : ``}`}>朱雀 AIGC 检测</Title>
-      <KeyValueList rows={[
-        [`人工`, percent(labels[`0`])],
-        [`AI 生成`, percent(labels[`1`])],
-        [`疑似 AI`, percent(labels[`2`])],
-        [`AI + 疑似`, percent(data.ratio)],
-        [`整体疑似风险`, String(data.report.result.ratio_confidence ?? 0)],
-      ]}
-      />
-      {segments.length > 0
-        ? (
-            <Box flexDirection="column" marginTop={1}>
-              <Text dimColor>{`分段判定（${segments.length} 段，最多展示 10 段）`}</Text>
-              {segments.slice(0, 10).map((segment, index) => (
-                <Text key={index} wrap="truncate-end">
-                  {`  [${ZHUQUE_LABEL_NAMES[segment.label] ?? segment.label} ${percent(segment.conf)}] ${segment.text.replace(/\s+/g, ` `)}`}
-                </Text>
-              ))}
-            </Box>
-          )
-        : null}
-    </Box>
-  )
 }
 
 export function registerDetect(program: Command): void {
@@ -89,9 +56,26 @@ export function registerDetect(program: Command): void {
         return
       }
 
-      const data = await executeCommand<DetectData>({
+      const data = await presentCommand<DetectData>({
+        spinner: `检测中…`,
         run,
-        render: result => <View data={result} />,
+        view: (result) => {
+          const labels = result.report.result.labels_ratio ?? {}
+          const segments = result.report.result.segment_labels ?? []
+          const lines = kvLines([
+            [`送检字符`, `${result.report.detectedChars}${result.report.truncated ? `（已截断）` : ``}`],
+            [`人工`, percent(labels[`0`])],
+            [`AI 生成`, percent(labels[`1`])],
+            [`疑似 AI`, percent(labels[`2`])],
+            [`AI + 疑似`, c.bold(percent(result.ratio))],
+            [`整体疑似风险`, String(result.report.result.ratio_confidence ?? 0)],
+          ])
+          note(`朱雀 AIGC 检测`, lines)
+          for (const segment of segments.slice(0, 10)) {
+            const name = ZHUQUE_LABEL_NAMES[segment.label] ?? segment.label
+            process.stdout.write(`  ${c.dim(`[${name} ${percent(segment.conf)}]`)} ${segment.text.replace(/\s+/g, ` `).slice(0, 60)}\n`)
+          }
+        },
         plain: (result) => {
           const labels = result.report.result.labels_ratio ?? {}
           process.stdout.write(`朱雀 AIGC 检测\n`)

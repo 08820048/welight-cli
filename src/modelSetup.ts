@@ -13,7 +13,7 @@
 import process from 'node:process'
 import { loadWelightConfig, saveConfigValues } from './config'
 import { saveCredential } from './credentials'
-import { askPassword, askSelect, askText } from './ink/prompts'
+import { askPassword, askSelect, askText } from './prompt'
 import { findServiceOption, providerLabel, serviceOptions } from './modelPresets'
 import { isInteractive } from './prompt'
 import { c, ui } from './ui'
@@ -49,8 +49,9 @@ export async function configureModel(input: ModelInput = {}, options: { onlyMiss
     const picked = await askSelect(
       `选择模型提供商`,
       serviceOptions.map(option => ({
-        label: option.value === `custom` ? `${option.label}（自定义接口）` : `${option.label}  ${c.dim(option.endpoint)}`,
         value: option.value,
+        label: option.label,
+        hint: option.value === `custom` ? `自定义接口` : option.endpoint,
       })),
     )
     provider = picked ?? provider
@@ -67,8 +68,7 @@ export async function configureModel(input: ModelInput = {}, options: { onlyMiss
         modelOptions.push({ label: `自定义模型名…`, value: `__custom__` })
         const picked = await askSelect(`选择模型`, modelOptions)
         model = picked === `__custom__` ? ((await askText(`模型名`)) ?? ``).trim() : (picked ?? ``)
-      }
-      else {
+      }      else {
         model = existingModel || preset.models[0] || ``
       }
     }

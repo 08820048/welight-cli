@@ -3,8 +3,7 @@ import type { Command } from 'commander'
 import { CREDENTIAL_SPECS, credentialStatus, credentialsFilePath, removeCredential, resolveCredentialName, saveCredential } from '../credentials'
 import { loadWelightConfig, missingModelConfig } from '../config'
 import { configureModel } from '../modelSetup'
-import { askPassword } from '../ink/prompts'
-import { isInteractive } from '../prompt'
+import { askPassword, isInteractive } from '../prompt'
 import { c, ui } from '../ui'
 
 function listCredentials(): void {

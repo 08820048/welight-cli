@@ -1,13 +1,9 @@
 import process from 'node:process'
 import type { Command } from 'commander'
-import { Badge } from '@inkjs/ui'
-import { Box, Text } from 'ink'
-import type { ReactNode } from 'react'
 import type { ArticleCheckupItem, ArticleCheckupReport } from '../checkup'
 import { runCheckup } from '../checkup'
 import { loadWelightConfig, resolveTypesafeEndpoint } from '../config'
-import { Hint, KeyValueList, Title } from '../ink/components'
-import { executeCommand } from '../ink/runtime'
+import { kvLines, note, presentCommand } from '../present'
 import { readInput } from '../io'
 import { inferTitle } from '../publish'
 import { c, ui } from '../ui'
@@ -19,14 +15,15 @@ const STATUS_LABEL: Record<ArticleCheckupItem['status'], string> = {
   unknown: `未判定`,
 }
 
-function StatusBadge({ status }: { status: ArticleCheckupItem['status'] }) {
+function statusTag(status: ArticleCheckupItem['status']): string {
+  const label = STATUS_LABEL[status].padEnd(6)
   if (status === `pass`)
-    return <Badge color="green">良好</Badge>
+    return c.green(label)
   if (status === `watch`)
-    return <Badge color="yellow">关注</Badge>
+    return c.yellow(label)
   if (status === `action`)
-    return <Badge color="red">建议处理</Badge>
-  return <Badge color="gray">未判定</Badge>
+    return c.red(label)
+  return c.dim(label)
 }
 
 function metric(item: ArticleCheckupItem): string {
@@ -35,36 +32,12 @@ function metric(item: ArticleCheckupItem): string {
   return item.probability !== undefined ? `${Math.round(item.probability * 100)}%` : ``
 }
 
-function View({ data }: { data: ArticleCheckupReport }): ReactNode {
-  return (
-    <Box flexDirection="column">
-      <Title subtitle={`采样 ${data.sampledChars} 字${data.truncated ? `（已截断）` : ``}${data.model ? ` · ${data.model}` : ``}`}>文章体检</Title>
-      <Box flexDirection="column">
-        {data.items.map(item => (
-          <Box key={item.id} flexDirection="column" marginBottom={item.status === `pass` ? 0 : 1}>
-            <Box>
-              <StatusBadge status={item.status} />
-              <Text bold>{` ${item.label} `}</Text>
-              <Text dimColor>{metric(item)}</Text>
-            </Box>
-            {item.status !== `pass` && item.status !== `unknown`
-              ? <Text dimColor wrap="wrap">{`  ${item.suggestion}`}</Text>
-              : null}
-          </Box>
-        ))}
-      </Box>
-      <Box marginTop={1}>
-        <KeyValueList rows={[
-          [`良好`, String(data.counts.pass)],
-          [`关注`, String(data.counts.watch)],
-          [`建议处理`, String(data.counts.action)],
-          [`未判定`, String(data.counts.unknown)],
-        ]}
-        />
-      </Box>
-      <Hint>体检来自判断层度量，是建议而非审核结论。</Hint>
-    </Box>
-  )
+function printItems(report: ArticleCheckupReport): void {
+  for (const item of report.items) {
+    process.stdout.write(`  ${statusTag(item.status)}  ${c.bold(item.label)} ${c.dim(metric(item))}\n`)
+    if (item.status !== `pass` && item.status !== `unknown`)
+      process.stdout.write(`        ${c.dim(item.suggestion)}\n`)
+  }
 }
 
 export function registerCheckup(program: Command): void {
@@ -109,16 +82,21 @@ export function registerCheckup(program: Command): void {
         return
       }
 
-      const data = await executeCommand<ArticleCheckupReport>({
+      const data = await presentCommand<ArticleCheckupReport>({
+        spinner: `体检中…`,
         run,
-        render: report => <View data={report} />,
+        view: (report) => {
+          note(`文章体检（采样 ${report.sampledChars} 字${report.truncated ? `，已截断` : ``}）`, kvLines([
+            [`良好`, String(report.counts.pass)],
+            [`关注`, String(report.counts.watch)],
+            [`建议处理`, String(report.counts.action)],
+            [`未判定`, String(report.counts.unknown)],
+          ]))
+          printItems(report)
+        },
         plain: (report) => {
           process.stdout.write(`文章体检（采样 ${report.sampledChars} 字${report.truncated ? `，已截断` : ``}）\n\n`)
-          for (const item of report.items) {
-            process.stdout.write(`  ${STATUS_LABEL[item.status]}  ${item.label} ${c.dim(metric(item))}\n`)
-            if (item.status !== `pass` && item.status !== `unknown`)
-              process.stdout.write(`        ${c.dim(item.suggestion)}\n`)
-          }
+          printItems(report)
           process.stdout.write(`\n良好 ${report.counts.pass} · 关注 ${report.counts.watch} · 建议处理 ${report.counts.action} · 未判定 ${report.counts.unknown}\n`)
         },
       })

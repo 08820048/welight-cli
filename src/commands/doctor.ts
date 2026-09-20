@@ -1,14 +1,11 @@
 import process from 'node:process'
 import type { Command } from 'commander'
-import { Box } from 'ink'
-import type { ReactNode } from 'react'
 import { loadWelightConfig } from '../config'
 import { credentialsFilePath } from '../credentials'
 import { installDom } from '../dom'
 import { themeOptions } from '../engine'
-import { Hint, KeyValueList, Title } from '../ink/components'
-import { executeCommand } from '../ink/runtime'
 import { providerLabel } from '../modelPresets'
+import { kvLines, note, presentCommand } from '../present'
 import { c, printKeyValues } from '../ui'
 
 interface DoctorData {
@@ -40,25 +37,16 @@ async function collect(): Promise<DoctorData> {
   }
 }
 
-function View({ data }: { data: DoctorData }): ReactNode {
-  return (
-    <Box flexDirection="column">
-      <Title subtitle="运行环境、配置与密钥状态">Welight CLI 自检</Title>
-      <KeyValueList rows={data.rows} />
-      <Hint>运行 welight setup 可通过对话完成配置。</Hint>
-    </Box>
-  )
-}
-
 export function registerDoctor(program: Command): void {
   program
     .command(`doctor`)
     .description(`检查运行环境、配置与密钥状态`)
     .action(async () => {
       installDom()
-      await executeCommand({
+      await presentCommand<DoctorData>({
         run: collect,
-        render: data => <View data={data} />,
+        spinner: `自检中…`,
+        view: data => note(`Welight CLI 自检`, [...kvLines(data.rows), ``, c.dim(`运行 welight setup 可通过对话完成配置。`)]),
         plain: (data) => {
           process.stdout.write(`Welight CLI 自检\n`)
           printKeyValues(data.rows)

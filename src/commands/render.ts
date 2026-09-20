@@ -6,10 +6,9 @@ import { openInBrowser } from '../browser'
 import { loadWelightConfig } from '../config'
 import { installDom } from '../dom'
 import { themeOptions } from '../engine'
-import { askSelect } from '../ink/prompts'
-import { isTui } from '../ink/runtime'
+import { p } from '../present'
+import { askSelect, isInteractive } from '../prompt'
 import { readInput } from '../io'
-import { isInteractive } from '../prompt'
 import { renderDocument } from '../render'
 import { c, ui } from '../ui'
 
@@ -39,14 +38,10 @@ export function registerRender(program: Command): void {
       let theme = (options.theme ?? ``).trim()
       if (!theme) {
         if (isInteractive()) {
-          const picked = await askSelect(
+          theme = (await askSelect(
             `选择主题`,
-            themeOptions.map(option => ({
-              label: `${option.value}  ${option.label}  ${c.dim(option.desc)}`,
-              value: option.value,
-            })),
-          )
-          theme = picked ?? config.theme
+            themeOptions.map(option => ({ value: option.value, label: option.label, hint: option.desc })),
+          )) ?? config.theme
         }
         else {
           theme = config.theme
@@ -71,7 +66,7 @@ export function registerRender(program: Command): void {
       }
 
       // 管道 / --stdout：输出原始 HTML
-      if (options.stdout || (!isTui() && !options.out)) {
+      if (options.stdout || (!isInteractive() && !options.out)) {
         process.stdout.write(html)
         return
       }
@@ -82,6 +77,6 @@ export function registerRender(program: Command): void {
       const shouldOpen = isInteractive() && options.open !== false
       if (shouldOpen)
         openInBrowser(outPath)
-      ui.success(`已生成 ${outPath}${shouldOpen ? `（已在浏览器打开）` : ``}  ${c.dim(`主题 ${theme}`)}`)
+      p.log.success(`已生成 ${outPath}${shouldOpen ? `（已在浏览器打开）` : ``}  ${c.dim(`主题 ${theme}`)}`)
     })
 }

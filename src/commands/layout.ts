@@ -2,19 +2,15 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 import type { Command } from 'commander'
-import { Box, Text } from 'ink'
-import type { ReactNode } from 'react'
 import { loadWelightConfig, resolveModelSettings, resolveTypesafeEndpoint } from '../config'
 import type { LayoutTierSetting } from '../engine'
 import { LAYOUT_TIER_SETTINGS } from '../engine'
-import { Hint, Success, Title } from '../ink/components'
-import { Markdown } from '../ink/markdown'
-import { askSelect } from '../ink/prompts'
-import { executeCommand } from '../ink/runtime'
 import { readInput } from '../io'
 import type { LayoutResult } from '../layout'
 import { runLayout, TIER_DESCRIPTIONS, TIER_LABELS } from '../layout'
-import { isInteractive } from '../prompt'
+import { markdownToAnsi } from '../markdown/ansi'
+import { p, presentCommand } from '../present'
+import { askSelect, isInteractive } from '../prompt'
 import { ui } from '../ui'
 
 interface LayoutCliOptions {
@@ -74,24 +70,31 @@ export function registerLayout(program: Command): void {
         return
       }
 
-      let tier: LayoutTierSetting = options.tier && isTier(options.tier) ? options.tier : `minimal`
-      if (!options.tier && !options.json && !options.out && !options.inPlace && isInteractive()) {
-        const picked = await askSelect(
-          `选择排版档位`,
-          LAYOUT_TIER_SETTINGS.map(value => ({ label: `${value}  ${TIER_DESCRIPTIONS[value]}`, value })),
-        )
-        if (picked && isTier(picked))
-          tier = picked
-      }
       if (options.tier && !isTier(options.tier)) {
         ui.error(`未知档位：${options.tier}。可用：${LAYOUT_TIER_SETTINGS.join(` / `)}`)
         process.exitCode = 1
         return
       }
 
+      let tier: LayoutTierSetting = options.tier && isTier(options.tier) ? options.tier : `minimal`
+      if (!options.tier && !options.json && !options.out && !options.inPlace && isInteractive()) {
+        const picked = await askSelect(
+          `选择排版档位`,
+          LAYOUT_TIER_SETTINGS.map(value => ({ value, label: value, hint: TIER_DESCRIPTIONS[value] })),
+        )
+        if (picked && isTier(picked))
+          tier = picked
+      }
+
       const markdown = await readInput(file)
       if (!markdown.trim()) {
         ui.error(`文件内容为空。`)
+        process.exitCode = 1
+        return
+      }
+
+      if (options.inPlace && file === `-`) {
+        ui.error(`--in-place 需要指定文件，不能用于 stdin。`)
         process.exitCode = 1
         return
       }
@@ -114,31 +117,23 @@ export function registerLayout(program: Command): void {
         return
       }
 
-      // 写入文件（--in-place / --out）
       const outPath = options.inPlace
-        ? (file === `-` ? null : path.resolve(file))
+        ? path.resolve(file)
         : options.out ? path.resolve(options.out) : null
 
-      if (options.inPlace && file === `-`) {
-        ui.error(`--in-place 需要指定文件，不能用于 stdin。`)
-        process.exitCode = 1
-        return
-      }
-
       if (outPath) {
-        await executeCommand<WrittenResult>({
+        await presentCommand<WrittenResult>({
+          spinner: `排版中…`,
           run: async () => {
             const result = await run()
             const content = result.markdown.endsWith(`\n`) ? result.markdown : `${result.markdown}\n`
             await fs.writeFile(outPath, content, `utf8`)
             return { path: outPath, tier: result.tier, recommended: result.recommended, bytes: Buffer.byteLength(content, `utf8`) }
           },
-          render: data => (
-            <Box flexDirection="column">
-              <Success>{`已排版并写入 ${data.path}`}</Success>
-              <Hint>{`档位：${TIER_LABELS[data.tier]}${data.recommended ? `（AI 推荐）` : ``} · ${data.bytes} 字节`}</Hint>
-            </Box>
-          ) as ReactNode,
+          view: (data) => {
+            p.log.success(`已排版并写入 ${data.path}`)
+            p.log.info(`档位：${TIER_LABELS[data.tier]}${data.recommended ? `（AI 推荐）` : ``} · ${data.bytes} 字节`)
+          },
           plain: (data) => {
             ui.success(`已排版并写入 ${data.path}`)
             process.stdout.write(`${TIER_LABELS[data.tier]}${data.recommended ? `（AI 推荐）` : ``}\n`)
@@ -147,15 +142,13 @@ export function registerLayout(program: Command): void {
         return
       }
 
-      // 输出到终端：TTY 渲染 Markdown，管道输出原始 Markdown
-      await executeCommand<LayoutResult>({
+      await presentCommand<LayoutResult>({
+        spinner: `排版中…`,
         run,
-        render: data => (
-          <Box flexDirection="column">
-            <Title subtitle={`档位：${TIER_LABELS[data.tier]}${data.recommended ? `（AI 推荐）` : ``}`}>一键排版结果</Title>
-            <Markdown source={data.markdown} />
-          </Box>
-        ) as ReactNode,
+        view: (data) => {
+          p.log.step(`一键排版结果 · 档位：${TIER_LABELS[data.tier]}${data.recommended ? `（AI 推荐）` : ``}`)
+          process.stdout.write(`${markdownToAnsi(data.markdown)}\n`)
+        },
         plain: (data) => {
           process.stdout.write(data.markdown.endsWith(`\n`) ? data.markdown : `${data.markdown}\n`)
         },

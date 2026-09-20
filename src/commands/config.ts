@@ -1,30 +1,12 @@
 import process from 'node:process'
 import type { Command } from 'commander'
-import { Box, Text } from 'ink'
-import type { ReactNode } from 'react'
-import { CONFIG_PATHS, getConfigValue, loadWelightConfig, setConfigValue, unsetConfigValue } from '../config'
 import type { WelightConfig } from '../config'
-import { Hint, KeyValueList, Title } from '../ink/components'
-import { executeCommand } from '../ink/runtime'
+import { CONFIG_PATHS, getConfigValue, loadWelightConfig, setConfigValue, unsetConfigValue } from '../config'
 import { c, ui } from '../ui'
 
 interface ConfigData {
   configFile?: string
   config: WelightConfig
-}
-
-function View({ data }: { data: ConfigData }): ReactNode {
-  return (
-    <Box flexDirection="column">
-      <Title subtitle={data.configFile ?? `未创建（可运行 welight init）`}>当前配置</Title>
-      <Box flexDirection="column">
-        {JSON.stringify(data.config, null, 2).split(`\n`).map((line, index) => (
-          <Text key={index} dimColor>{line}</Text>
-        ))}
-      </Box>
-      <Hint>{`可修改项：${CONFIG_PATHS.join(`, `)}`}</Hint>
-    </Box>
-  )
 }
 
 export function registerConfig(program: Command): void {
@@ -34,14 +16,10 @@ export function registerConfig(program: Command): void {
     .addHelpText(`after`, `\n可修改项（config set/unset）：\n  ${CONFIG_PATHS.join(`\n  `)}\n\n示例:\n  $ welight config set theme w011\n  $ welight config set model.baseUrl https://api.deepseek.com/v1\n  $ welight config get theme\n  $ welight config unset theme`)
 
   config.action(async () => {
-    await executeCommand<ConfigData>({
-      run: async () => loadWelightConfig(),
-      render: data => <View data={data} />,
-      plain: (data) => {
-        process.stdout.write(`${c.bold(`配置文件：`)}${data.configFile ?? c.dim(`未创建（可运行 welight init）`)}\n\n`)
-        process.stdout.write(`${JSON.stringify(data.config, null, 2)}\n`)
-      },
-    })
+    const { config: loaded, configFile } = await loadWelightConfig()
+    const data: ConfigData = { config: loaded, configFile }
+    process.stdout.write(`${c.bold(`配置文件：`)}${data.configFile ?? c.dim(`未创建（可运行 welight init）`)}\n\n`)
+    process.stdout.write(`${JSON.stringify(data.config, null, 2)}\n`)
   })
 
   config
