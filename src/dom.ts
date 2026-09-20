@@ -6,7 +6,7 @@
  * 让内核代码无需改动即可在 Node 中运行。
  */
 
-import { parseHTML } from 'linkedom'
+import { DOMParser, parseHTML } from 'linkedom'
 
 let installed = false
 
@@ -36,4 +36,5 @@ export function installDom(): void {
   defineGlobal(`window`, window)
   defineGlobal(`document`, document)
   defineGlobal(`navigator`, window.navigator)
+  defineGlobal(`DOMParser`, DOMParser)
 }

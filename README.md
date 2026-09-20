@@ -48,6 +48,9 @@ welight render post.md --theme w011 --out out.html
 # 生成公众号内联 HTML 并复制到剪贴板（到公众号后台直接粘贴）
 welight copy post.md --theme w011
 
+# 发布到公众号草稿箱（直连微信，需先加 IP 白名单）
+WELIGHT_WECHAT_APP_ID=xxx WELIGHT_WECHAT_APP_SECRET=yyy welight publish post.md --cover ./cover.png
+
 # 从管道读取，输出到 stdout
 cat post.md | welight render - > out.html
 
@@ -92,13 +95,23 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 | --- | --- |
 | `welight render <file>` | 渲染为带主题样式的独立 HTML，可 `--out` 写文件或输出到 stdout |
 | `welight copy <file>` | 生成公众号内联 HTML 并写入系统剪贴板，到公众号后台粘贴 |
+| `welight publish <file>` | 渲染并直连微信接口创建公众号草稿（不做正式发布） |
 | `welight themes` | 列出可用的免费主题 |
 | `welight doctor` | 检查运行环境、配置与密钥状态 |
 | `welight init` | 生成 `welight.config.json` 配置模板 |
 
 文件参数传 `-` 表示从 stdin 读取。`copy` 默认使用 `github-dark` 代码高亮主题，可用 `--code-theme` 指定或传 `none` 关闭。
 
-> 发布、规则检查、朱雀检测、标题推荐、Welight AI 等命令正在开发中。
+`publish` 相关说明：
+
+- AppID / AppSecret 从 `WELIGHT_WECHAT_APP_ID` / `WELIGHT_WECHAT_APP_SECRET` 读取，也可用 `--app-id` / `--app-secret` 临时传入。
+- 默认直连 `api.weixin.qq.com`，**不使用官方代理**；使用前请把当前网络出口 IP 加入公众号后台「开发 → 基本配置 → IP 白名单」，否则会返回 `40164`。
+- 需要 `--cover` 指定封面，或正文包含一张可读取的图片作为封面；正文里的本地/远程图片会自动上传并替换。
+- 其他选项：`--title`、`--author`、`--digest`、`--source-url`、`--open-comment`、`--fans-comment-only`、`--no-watermark`、`--preview`、`--proxy`。
+
+> 发布默认会在文末追加 `welight.fyi` 水印，可用 `--no-watermark` 关闭。
+
+> 规则检查、朱雀检测、标题推荐、Welight AI 等命令正在开发中。
 
 ## 开发
 
