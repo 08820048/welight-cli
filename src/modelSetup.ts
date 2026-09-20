@@ -13,8 +13,8 @@
 import process from 'node:process'
 import { loadWelightConfig, saveConfigValues } from './config'
 import { saveCredential } from './credentials'
-import { serviceOptions } from './engine'
 import { askPassword, askSelect, askText } from './ink/prompts'
+import { findServiceOption, providerLabel, serviceOptions } from './modelPresets'
 import { isInteractive } from './prompt'
 import { c, ui } from './ui'
 
@@ -23,14 +23,6 @@ export interface ModelInput {
   baseUrl?: string
   model?: string
   apiKey?: string
-}
-
-export function findServiceOption(provider: string) {
-  return serviceOptions.find(option => option.value === provider)
-}
-
-export function providerLabel(provider: string): string {
-  return findServiceOption(provider)?.label ?? provider
 }
 
 export async function configureModel(input: ModelInput = {}, options: { onlyMissing?: boolean } = {}): Promise<boolean> {

@@ -8,7 +8,7 @@ import { installDom } from '../dom'
 import { themeOptions } from '../engine'
 import { Hint, KeyValueList, Title } from '../ink/components'
 import { executeCommand } from '../ink/runtime'
-import { providerLabel } from '../modelSetup'
+import { providerLabel } from '../modelPresets'
 import { c, printKeyValues } from '../ui'
 
 interface DoctorData {

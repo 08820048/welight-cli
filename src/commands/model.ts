@@ -1,6 +1,6 @@
 import process from 'node:process'
 import type { Command } from 'commander'
-import { serviceOptions } from '../engine'
+import { serviceOptions } from '../modelPresets'
 import { configureModel } from '../modelSetup'
 
 export function registerModel(program: Command): void {
