@@ -9,7 +9,8 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 import readingTime from 'reading-time'
-import { loadWelightConfig, resolveTypesafeEndpoint } from '../config'
+import { loadWelightConfig, resolveTypesafeEndpoint, saveConfigValues } from '../config'
+import { CREDENTIAL_SPECS, credentialStatus, isCredentialName, saveCredential } from '../credentials'
 import { scanWechatRules } from '../engine'
 import type { ZhuqueDetectReport } from '../engine'
 import { themeOptions } from '../engine'
@@ -19,16 +20,18 @@ import { scoreTitles } from '../titleScore'
 import { buildWeChatInlineHtml } from '../wechat'
 import { aiRatio, detectAiText } from '../zhuqueApi'
 
-export interface AgentDocument {
+export interface AgentContext {
   /** 当前文章正文（Markdown） */
   content: string
+  /** 交互模式下的安全密钥输入回调（值不会进入模型上下文） */
+  requestSecret?: (name: string, label: string) => Promise<string | null>
 }
 
 export interface AiTool {
   name: string
   description: string
   parameters: Record<string, unknown>
-  run: (args: Record<string, unknown>, doc: AgentDocument) => Promise<string>
+  run: (args: Record<string, unknown>, ctx: AgentContext) => Promise<string>
 }
 
 function percent(value: number | undefined): string {
@@ -191,6 +194,93 @@ const scoreTitlesTool: AiTool = {
   },
 }
 
+/** 查询当前配置与凭据状态（不含密钥值） */
+const getConfigStatusTool: AiTool = {
+  name: `get_config_status`,
+  description: `查看当前 CLI 配置（主题、代码高亮、水印、模型接口、lint 阈值）与各凭据是否已配置。配置前先调用它了解现状。`,
+  parameters: EMPTY_PARAMS,
+  async run() {
+    const { config, configFile } = await loadWelightConfig()
+    const creds = credentialStatus().map(item => `${item.label}：${item.configured ? `已配置` : `未配置`}`)
+    return [
+      `配置文件：${configFile ?? `未创建`}`,
+      `主题 ${config.theme}；代码高亮 ${config.codeTheme}；水印 ${config.watermark ? `开` : `关`}；lint 阈值 ${config.lint.failOn}`,
+      `模型接口 ${config.model.baseUrl || `未配置`}；模型名 ${config.model.model || `未配置`}`,
+      `凭据：${creds.join(`；`)}`,
+    ].join(`\n`)
+  },
+}
+
+/** 写入非敏感配置 */
+const saveConfigTool: AiTool = {
+  name: `save_config`,
+  description: `把非敏感配置写入 welight.config.json：主题、代码高亮、水印、微信代理、模型接口/模型名、lint 阈值。密钥请改用 store_secret。`,
+  parameters: {
+    type: `object`,
+    properties: {
+      theme: { type: `string`, description: `免费主题名，如 w001` },
+      codeTheme: { type: `string`, description: `highlight.js 代码高亮主题，none 关闭` },
+      watermark: { type: `boolean`, description: `发布是否追加文末水印` },
+      proxy: { type: `string`, description: `自建微信 API 反向代理 origin，留空直连` },
+      modelBaseUrl: { type: `string`, description: `OpenAI 兼容接口地址` },
+      modelModel: { type: `string`, description: `模型名` },
+      lintFailOn: { type: `string`, enum: [`none`, `low`, `medium`, `high`], description: `lint 失败阈值` },
+    },
+    additionalProperties: false,
+  },
+  async run(args) {
+    const patch: Record<string, unknown> = {}
+    if (typeof args.theme === `string`)
+      patch.theme = args.theme
+    if (typeof args.codeTheme === `string`)
+      patch.codeTheme = args.codeTheme
+    if (typeof args.watermark === `boolean`)
+      patch.watermark = args.watermark
+    if (typeof args.proxy === `string`)
+      patch.proxy = args.proxy
+    if (typeof args.lintFailOn === `string`)
+      patch.lint = { failOn: args.lintFailOn }
+    const modelPatch: Record<string, string> = {}
+    if (typeof args.modelBaseUrl === `string`)
+      modelPatch.baseUrl = args.modelBaseUrl
+    if (typeof args.modelModel === `string`)
+      modelPatch.model = args.modelModel
+    if (Object.keys(modelPatch).length > 0)
+      patch.model = modelPatch
+    if (Object.keys(patch).length === 0)
+      return `没有需要保存的配置项。`
+    const { file, config } = saveConfigValues(patch)
+    return `已写入配置：${file}（主题 ${config.theme}，模型 ${config.model.model || `未设置`}）`
+  },
+}
+
+/** 安全收集密钥（用户本地输入，值不发给模型） */
+const storeSecretTool: AiTool = {
+  name: `store_secret`,
+  description: `在用户本地安全收集一个凭据并保存到本地凭据文件，值不会发送给模型。当用户要配置模型 Key / TypeSafe / 朱雀 / 公众号凭据时调用。`,
+  parameters: {
+    type: `object`,
+    properties: {
+      name: { type: `string`, enum: Object.keys(CREDENTIAL_SPECS), description: `凭据项` },
+    },
+    required: [`name`],
+    additionalProperties: false,
+  },
+  async run(args, ctx) {
+    const name = typeof args.name === `string` ? args.name : ``
+    if (!isCredentialName(name))
+      return `不支持的凭据项：${name}`
+    const label = CREDENTIAL_SPECS[name]
+    if (!ctx.requestSecret)
+      return `当前不是交互模式，无法安全输入「${label}」。请让用户在终端运行 welight ai --chat，或手动设置环境变量 ${name}。`
+    const value = await ctx.requestSecret(name, label)
+    if (!value)
+      return `用户取消了「${label}」的输入。`
+    saveCredential(name, value)
+    return `已保存「${label}」到本地凭据文件（值未发送给模型）。`
+  },
+}
+
 export const AI_TOOLS: AiTool[] = [
   checkRulesTool,
   detectAiTextTool,
@@ -199,4 +289,7 @@ export const AI_TOOLS: AiTool[] = [
   renderArticleTool,
   renderDocumentTool,
   scoreTitlesTool,
+  getConfigStatusTool,
+  saveConfigTool,
+  storeSecretTool,
 ]

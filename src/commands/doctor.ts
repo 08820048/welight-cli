@@ -1,6 +1,7 @@
 import process from 'node:process'
 import { Command } from 'clipanion'
 import { loadWelightConfig } from '../config'
+import { credentialsFilePath } from '../credentials'
 import { installDom } from '../dom'
 import { themeOptions } from '../engine'
 
@@ -27,6 +28,7 @@ export class DoctorCommand extends Command {
       [`代码高亮主题`, config.codeTheme],
       [`文末水印`, config.watermark ? `开启` : `关闭`],
       [`配置文件`, configFile ?? `未找到（使用默认值，可运行 welight init 生成）`],
+      [`凭据文件`, credentialsFilePath()],
       [`免费主题数`, String(themeOptions.length)],
       [`模型接口`, config.model.baseUrl || `未配置`],
       [`模型名`, config.model.model || `未配置`],

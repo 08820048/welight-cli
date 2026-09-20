@@ -1,7 +1,8 @@
 import { Builtins, Cli } from 'clipanion'
 import { VERSION } from './version'
+import { loadCredentials } from './credentials'
 import { CopyCommand } from './commands/copy'
-import { AiCommand } from './commands/ai'
+import { AiCommand, SetupCommand } from './commands/ai'
 import { ConfigCommand } from './commands/config'
 import { DetectCommand } from './commands/detect'
 import { DoctorCommand } from './commands/doctor'
@@ -26,6 +27,7 @@ export function createCli(): Cli {
   cli.register(DetectCommand)
   cli.register(TitleCommand)
   cli.register(AiCommand)
+  cli.register(SetupCommand)
   cli.register(ThemesCommand)
   cli.register(DoctorCommand)
   cli.register(InitCommand)
@@ -38,6 +40,7 @@ export function createCli(): Cli {
 }
 
 export async function run(argv: string[]): Promise<void> {
+  loadCredentials()
   const cli = createCli()
   await cli.runExit(argv, Cli.defaultContext)
 }

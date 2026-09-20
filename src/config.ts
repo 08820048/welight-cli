@@ -5,6 +5,8 @@
  * 密钥类配置不落配置文件，只从环境变量 / 参数读取（见 resolveModelSettings）。
  */
 
+import fs from 'node:fs'
+import path from 'node:path'
 import process from 'node:process'
 import { loadConfig } from 'c12'
 import { z } from 'zod'
@@ -115,4 +117,59 @@ export function resolveFailOn(config: WelightConfig, flag?: string): LintFailOn 
 /** TypeSafe 上游地址：env > 配置文件 > 默认 */
 export function resolveTypesafeEndpoint(config: WelightConfig): string {
   return (process.env.WELIGHT_TYPESAFE_ENDPOINT ?? config.typesafe.endpoint ?? ``).trim()
+}
+
+/** 允许写入 welight.config.json 的顶层键（密钥不在其中） */
+export const SAVEABLE_CONFIG_KEYS = [
+  `theme`,
+  `primaryColor`,
+  `fontFamily`,
+  `fontSize`,
+  `customCSS`,
+  `codeTheme`,
+  `watermark`,
+  `proxy`,
+  `lint`,
+  `model`,
+  `typesafe`,
+] as const
+
+/**
+ * 合并写入 welight.config.json（不存在则创建）。
+ * 嵌套对象做浅合并，未知键拒绝，写入前经 schema 校验。
+ */
+export function saveConfigValues(
+  patch: Record<string, unknown>,
+  cwd: string = process.cwd(),
+): { file: string, config: WelightConfig } {
+  const file = path.join(cwd, `welight.config.json`)
+  let existing: Record<string, unknown> = {}
+  try {
+    existing = JSON.parse(fs.readFileSync(file, `utf8`)) as Record<string, unknown>
+  }
+  catch {
+    existing = {}
+  }
+
+  const merged: Record<string, unknown> = { ...existing }
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined)
+      continue
+    if (!(SAVEABLE_CONFIG_KEYS as readonly string[]).includes(key))
+      throw new Error(`不支持的配置项：${key}`)
+    if (value && typeof value === `object` && !Array.isArray(value)) {
+      const current = merged[key]
+      merged[key] = {
+        ...(current && typeof current === `object` && !Array.isArray(current) ? current as object : {}),
+        ...(value as object),
+      }
+    }
+    else {
+      merged[key] = value
+    }
+  }
+
+  const config = configSchema.parse(merged)
+  fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`, `utf8`)
+  return { file, config }
 }

@@ -105,7 +105,9 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 
 **优先级：命令行参数 > 环境变量 > 配置文件 > 内置默认值**；用 `welight config` 查看当前生效配置。
 
-密钥只从环境变量读取，不写入配置文件：
+密钥只从环境变量读取，不写入配置文件。也可以让配置助手代劳：`welight setup`（或 `welight ai --chat`）会对话式引导，密钥由本地安全输入，保存到 `~/.config/welight/credentials`（`WELIGHT_HOME` 可改，权限 0600），启动时自动加载。
+
+需要手动设置时：
 
 | 变量 | 用途 |
 | --- | --- |
@@ -129,7 +131,8 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 | `welight lint <file>` | 扫描公众号平台规则命中，可用 `--json`/`--fail-on` 接入 CI |
 | `welight detect <file>` | 腾讯朱雀 AIGC 检测，可用 `--json`/`--max-ai` 接入 CI |
 | `welight title <file>` | 生成候选标题（BYOK 模型），也可用 `--topic` 直接给主题 |
-| `welight ai <prompt>` | 写作助手对话，带文章上下文，可按需调用规则扫描 / 朱雀检测工具 |
+| `welight ai <prompt>` | 写作助手对话，带文章上下文，可按需调用工具 |
+| `welight setup` | 配置助手（等价 `welight ai --chat`），对话式完成 model / 朱雀 / TypeSafe / 公众号等配置 |
 | `welight themes` | 列出可用的免费主题 |
 | `welight doctor` | 检查运行环境、配置与密钥状态 |
 | `welight config` | 打印当前生效配置与来源文件 |
@@ -164,9 +167,14 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 `ai` 是 CLI 自建的轻量 Agent（不依赖桌面端运行时）：
 
 - `welight ai "指令" --file post.md`，结果可 `--out` 写回文件、`--json` 输出；
-- 模型可按需调用 7 个只读/产物类工具：`check_wechat_rules`（规则扫描）、`detect_ai_text`（朱雀检测）、`list_themes`（主题列表）、`article_stats`（篇幅结构统计）、`render_article`（主题渲染内联 HTML 落盘）、`render_document`（独立 HTML 落盘）、`score_titles`（标题评分）；
+- 模型可按需调用 10 个工具：写作类 `check_wechat_rules`、`detect_ai_text`、`list_themes`、`article_stats`、`render_article`、`render_document`、`score_titles`；配置类 `get_config_status`、`save_config`、`store_secret`；
 - 发布等有副作用的操作**不**放进工具循环，避免模型误触发；需要发布请用 `welight publish`。
 - 默认**流式输出**（`--stream`，`--json` / `--out` 时自动关闭）；工具进度输出到 stderr，正文结果走 stdout，便于管道组合。
+
+`welight ai --chat` / `welight setup` 是多轮对话模式，可让助手直接帮你配置：
+
+- 非敏感项（主题、代码高亮、水印、微信代理、模型接口/模型名、lint 阈值）由 `save_config` 写入 `welight.config.json`；
+- **密钥由 CLI 在本地安全输入**（不回显、不发送给模型），保存到本地凭据文件（见下），模型只会收到“已保存”。
 
 ## 开发
 

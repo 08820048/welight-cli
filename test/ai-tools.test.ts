@@ -31,7 +31,18 @@ afterEach(() => {
 describe(`ai 工具集`, () => {
   it(`包含预期的工具`, () => {
     const names = AI_TOOLS.map(item => item.name).sort()
-    expect(names).toEqual([`article_stats`, `check_wechat_rules`, `detect_ai_text`, `list_themes`, `render_article`, `render_document`, `score_titles`])
+    expect(names).toEqual([
+      `article_stats`,
+      `check_wechat_rules`,
+      `detect_ai_text`,
+      `get_config_status`,
+      `list_themes`,
+      `render_article`,
+      `render_document`,
+      `save_config`,
+      `score_titles`,
+      `store_secret`,
+    ])
   })
 
   it(`list_themes 返回免费主题`, async () => {
