@@ -173,6 +173,7 @@ auth 名：`model` `typesafe` `zhuque` `wechat-app-id` `wechat-app-secret`（也
 | `welight publish <file>` | 渲染并直连微信接口创建公众号草稿（不做正式发布） |
 | `welight lint <file>` | 扫描公众号平台规则命中，可用 `--json`/`--fail-on` 接入 CI |
 | `welight detect <file>` | 腾讯朱雀 AIGC 检测，可用 `--json`/`--max-ai` 接入 CI |
+| `welight checkup <file>` | 文章体检：12 项量化检查（需 `WELIGHT_TYPESAFE_KEY`） |
 | `welight title <file>` | 生成候选标题（BYOK 模型），也可用 `--topic` 直接给主题 |
 | `welight ai <prompt>` | 写作助手对话，带文章上下文，可按需调用工具 |
 | `welight setup` | 配置向导：逐步完成模型 / 朱雀 / TypeSafe / 公众号等配置（无需 AI） |
@@ -210,8 +211,11 @@ AI 回复在终端下会**渲染 Markdown**（标题/粗体/列表/代码块带�
 - 供 CI 使用：`welight lint post.md --fail-on high || exit 1`。
 
 `detect` 使用自配 EdgeOne Key 直连腾讯网关（`WELIGHT_ZHUQUE_KEY` 或 `--api-key`），不做官方代理：
-
 - 自动剥离 Markdown 语法并按 2 万字上限截断；`--json` 输出完整报告，`--max-ai <百分比>` 在 AI + 疑似占比超阈时退出码 1。
+
+`checkup` 对文章做 12 项量化体检（需 `WELIGHT_TYPESAFE_KEY`）：开头吸引力、结构、过渡、长段落、重复、术语、表格/图表机会、可读性、收尾、互动、标题一致性。
+
+- `--json` 输出完整报告；`--fail-on action|watch` 可作 CI 门禁。
 
 `title` 复用桌面端「爆款标题」提示词，调用你自己配置的 OpenAI 兼容模型：
 
@@ -222,7 +226,7 @@ AI 回复在终端下会**渲染 Markdown**（标题/粗体/列表/代码块带�
 `ai` 是 CLI 自建的轻量 Agent（不依赖桌面端运行时）：
 
 - `welight ai "指令" --file post.md`，结果可 `--out` 写回文件、`--json` 输出；
-- 模型可按需调用 10 个工具：写作类 `check_wechat_rules`、`detect_ai_text`、`list_themes`、`article_stats`、`render_article`、`render_document`、`score_titles`；配置类 `get_config_status`、`save_config`、`store_secret`；
+- 模型可按需调用 12 个工具：写作类 `check_wechat_rules`、`detect_ai_text`、`list_themes`、`article_stats`、`layout_article`、`article_checkup`、`render_article`、`render_document`、`score_titles`；配置类 `get_config_status`、`save_config`、`store_secret`；
 - 发布等有副作用的操作**不**放进工具循环，避免模型误触发；需要发布请用 `welight publish`。
 - 默认**流式输出**（`--stream`，`--json` / `--out` 时自动关闭）；工具进度输出到 stderr，正文结果走 stdout，便于管道组合。
 

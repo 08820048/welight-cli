@@ -38,7 +38,13 @@ export interface TypeSafeChoiceQuestion {
   criteria: Record<string, string>
 }
 
-export type TypeSafeQuestion = TypeSafeScoreQuestion | TypeSafeChoiceQuestion
+/** Noul：回答「是」的概率（0-1） */
+export interface TypeSafeNoulQuestion {
+  type: `noul`
+  instructions: string
+}
+
+export type TypeSafeQuestion = TypeSafeScoreQuestion | TypeSafeChoiceQuestion | TypeSafeNoulQuestion
 
 export interface TypeSafeResponse {
   model?: string
@@ -100,4 +106,15 @@ export function answerScore(answer: TypeSafeAnswer | undefined): number | undefi
 
 export function answerChoice(answer: TypeSafeAnswer | undefined): string | undefined {
   return typeof answer?.choice === `string` && answer.choice ? answer.choice : undefined
+}
+
+/** Noul：读取回答「是」的概率 */
+export function answerProbability(answer: TypeSafeAnswer | undefined): number | undefined {
+  if (!answer)
+    return undefined
+  if (typeof answer.probability === `number`)
+    return answer.probability
+  if (typeof answer.noul === `number`)
+    return answer.noul
+  return undefined
 }

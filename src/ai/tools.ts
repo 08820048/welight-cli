@@ -9,8 +9,10 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 import readingTime from 'reading-time'
-import { loadWelightConfig, resolveTypesafeEndpoint, saveConfigValues } from '../config'
+import { loadWelightConfig, missingModelConfig, resolveModelSettings, resolveTypesafeEndpoint, saveConfigValues } from '../config'
 import { CREDENTIAL_SPECS, credentialStatus, isCredentialName, saveCredential } from '../credentials'
+import { runCheckup } from '../checkup'
+import { runLayout } from '../layout'
 import { scanWechatRules } from '../engine'
 import type { ZhuqueDetectReport } from '../engine'
 import { themeOptions } from '../engine'
@@ -194,6 +196,65 @@ const scoreTitlesTool: AiTool = {
   },
 }
 
+/** 一键排版当前文章 */
+const layoutArticleTool: AiTool = {
+  name: `layout_article`,
+  description: `对当前文章执行一键排版，按档位（auto/minimal/standard/rich）重排标题层级、强调与列表，保留事实与代码。`,
+  parameters: {
+    type: `object`,
+    properties: {
+      tier: { type: `string`, enum: [`auto`, `minimal`, `standard`, `rich`], description: `排版档位，默认 minimal` },
+    },
+    additionalProperties: false,
+  },
+  async run(args, ctx) {
+    if (!ctx.content.trim())
+      return `当前没有文章内容可排版。`
+    const { config } = await loadWelightConfig()
+    const missing = missingModelConfig(config)
+    if (missing.length > 0)
+      return `模型配置不完整，缺少：${missing.join(`、`)}。请让用户先运行 welight model。`
+    const settings = resolveModelSettings(config, {})
+    const requested = typeof args.tier === `string` ? args.tier : `minimal`
+    const tier = ([`auto`, `minimal`, `standard`, `rich`].includes(requested) ? requested : `minimal`) as `auto` | `minimal` | `standard` | `rich`
+    try {
+      const result = await runLayout(ctx.content, {
+        tier,
+        model: settings,
+        typesafe: { apiKey: (process.env.WELIGHT_TYPESAFE_KEY ?? ``).trim(), endpoint: resolveTypesafeEndpoint(config) },
+      })
+      return `已排版（档位 ${result.tier}）：\n\n${result.markdown}`
+    }
+    catch (error) {
+      return `排版失败：${error instanceof Error ? error.message : String(error)}`
+    }
+  },
+}
+
+/** 文章体检（12 项） */
+const articleCheckupTool: AiTool = {
+  name: `article_checkup`,
+  description: `对当前文章做 12 项体检（开头/结构/过渡/长段落/重复/术语/表格图表机会/可读性/收尾/互动/标题一致性）。需要 WELIGHT_TYPESAFE_KEY。`,
+  parameters: EMPTY_PARAMS,
+  async run(_args, ctx) {
+    if (!ctx.content.trim())
+      return `当前没有文章内容可体检。`
+    const key = (process.env.WELIGHT_TYPESAFE_KEY ?? ``).trim()
+    if (!key)
+      return `未配置 WELIGHT_TYPESAFE_KEY，无法体检。`
+    const { config } = await loadWelightConfig()
+    try {
+      const report = await runCheckup(ctx.content, { apiKey: key, endpoint: resolveTypesafeEndpoint(config) })
+      const issues = report.items.filter(item => item.status === `action` || item.status === `watch`)
+      const lines = issues.map(item => `- [${item.status === `action` ? `建议处理` : `关注`}] ${item.label}：${item.suggestion}`)
+      return `体检完成：良好 ${report.counts.pass} / 关注 ${report.counts.watch} / 建议处理 ${report.counts.action} / 未判定 ${report.counts.unknown}\n${lines.join(`\n`)}`
+    }
+    catch (error) {
+      return `体检失败：${error instanceof Error ? error.message : String(error)}`
+    }
+  },
+}
+
 /** 查询当前配置与凭据状态（不含密钥值） */
 const getConfigStatusTool: AiTool = {
   name: `get_config_status`,
@@ -289,6 +350,8 @@ export const AI_TOOLS: AiTool[] = [
   renderArticleTool,
   renderDocumentTool,
   scoreTitlesTool,
+  layoutArticleTool,
+  articleCheckupTool,
   getConfigStatusTool,
   saveConfigTool,
   storeSecretTool,

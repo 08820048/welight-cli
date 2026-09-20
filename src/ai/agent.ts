@@ -15,6 +15,8 @@ const SYSTEM_PROMPT = `你是 Welight CLI 的中文写作与配置助手，帮�
 - detect_ai_text：评估文章的 AI 生成占比；
 - list_themes：查看可用的免费主题；
 - article_stats：统计篇幅与结构（字数/阅读时间/标题/图片等）；
+- layout_article：对当前文章一键排版（档位 auto/minimal/standard/rich）；
+- article_checkup：对当前文章做 12 项体检（需 WELIGHT_TYPESAFE_KEY）；
 - render_article：用指定主题渲染并保存公众号内联 HTML；
 - render_document：用指定主题渲染并保存独立 HTML（浏览器预览）；
 - score_titles：给候选标题按打开潜力评分排序。

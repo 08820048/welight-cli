@@ -32,10 +32,12 @@ describe(`ai 工具集`, () => {
   it(`包含预期的工具`, () => {
     const names = AI_TOOLS.map(item => item.name).sort()
     expect(names).toEqual([
+      `article_checkup`,
       `article_stats`,
       `check_wechat_rules`,
       `detect_ai_text`,
       `get_config_status`,
+      `layout_article`,
       `list_themes`,
       `render_article`,
       `render_document`,
