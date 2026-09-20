@@ -150,7 +150,8 @@ CLI 只提供全部主题的前 45%：`w001 玉兰`、`w002 牡丹`、`w003 雏�
 `ai` 是 CLI 自建的轻量 Agent（不依赖桌面端运行时）：
 
 - `welight ai "指令" --file post.md`，结果可 `--out` 写回文件、`--json` 输出；
-- 模型可按需调用 `check_wechat_rules`（本地规则扫描）与 `detect_ai_text`（朱雀检测，需 `WELIGHT_ZHUQUE_KEY`）；
+- 模型可按需调用 5 个只读/产物类工具：`check_wechat_rules`（规则扫描）、`detect_ai_text`（朱雀检测，需 `WELIGHT_ZHUQUE_KEY`）、`list_themes`（主题列表）、`render_article`（用主题渲染并保存 HTML）、`score_titles`（标题评分，需 `WELIGHT_TYPESAFE_KEY`）；
+- 发布等有副作用的操作**不**放进工具循环，避免模型误触发；需要发布请用 `welight publish`。
 - 默认**流式输出**（`--stream`，`--json` / `--out` 时自动关闭）；工具进度输出到 stderr，正文结果走 stdout，便于管道组合。
 
 ## 开发

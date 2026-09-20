@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import process from 'node:process'
 import { Command, Option } from 'clipanion'
 import { runAgent } from '../ai/agent'
+import { installDom } from '../dom'
 import { readInput } from '../io'
 
 export class AiCommand extends Command {
@@ -42,6 +43,8 @@ export class AiCommand extends Command {
   json = Option.Boolean(`--json`, false, { description: `以 JSON 输出` })
 
   async execute(): Promise<number> {
+    installDom()
+
     const apiKey = (this.apiKey ?? process.env.WELIGHT_MODEL_API_KEY ?? ``).trim()
     const baseUrl = (this.baseUrl ?? process.env.WELIGHT_MODEL_BASE_URL ?? ``).trim()
     const model = (this.model ?? process.env.WELIGHT_MODEL ?? ``).trim()
