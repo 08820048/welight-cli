@@ -39,9 +39,10 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@clack/prompts": "^1.8.1",
     "@crosscopy/clipboard": "^0.3.6",
     "c12": "^2.0.4",
-    "clipanion": "^3.2.1",
+    "commander": "^15.0.0",
     "fflate": "^0.8.2",
     "front-matter": "^4.0.2",
     "highlight.js": "^11.11.1",
@@ -50,13 +51,14 @@
     "linkedom": "^0.18.13",
     "marked": "^17.0.1",
     "mermaid": "^11.16.1",
+    "picocolors": "^1.1.1",
     "reading-time": "^1.5.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
-    "tsx": "^4.20.0",
     "tsup": "^8.5.0",
+    "tsx": "^4.20.0",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
   }

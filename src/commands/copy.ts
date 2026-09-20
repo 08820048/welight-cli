@@ -1,63 +1,45 @@
-import { Command, Option } from 'clipanion'
+import process from 'node:process'
+import type { Command } from 'commander'
 import { copyRichHtml } from '../clipboard'
 import { loadWelightConfig, resolveCodeTheme } from '../config'
 import { installDom } from '../dom'
 import { readInput } from '../io'
+import { ui } from '../ui'
 import { buildWeChatInlineHtml, htmlToPlainText } from '../wechat'
 
-export class CopyCommand extends Command {
-  static paths = [[`copy`]]
+export function registerCopy(program: Command): void {
+  program
+    .command(`copy`)
+    .description(`生成公众号内联 HTML 并复制到剪贴板`)
+    .argument(`<file>`, `Markdown 文件路径，- 表示从 stdin 读取`)
+    .option(`-t, --theme <name>`, `免费主题名（默认取配置）`)
+    .option(`--code-theme <name>`, `highlight.js 代码高亮主题，none 关闭（默认取配置）`)
+    .addHelpText(`after`, `\n生成内联样式的 HTML 写入系统剪贴板，到公众号后台编辑器直接粘贴。\n\n示例:\n  $ welight copy post.md --theme w011`)
+    .action(async (file: string, options: { theme?: string, codeTheme?: string }) => {
+      installDom()
+      const { config } = await loadWelightConfig()
+      const markdown = await readInput(file)
 
-  static usage = Command.Usage({
-    description: `生成公众号内联 HTML 并复制到剪贴板`,
-    details: `
-      与桌面端「复制到公众号」一致：生成内联样式的 HTML 写入系统剪贴板，
-      在公众号后台编辑器直接粘贴即可。文件参数传 "-" 时从 stdin 读取。
-    `,
-    examples: [
-      [`复制文章`, `$0 copy post.md`],
-      [`指定主题与代码高亮`, `$0 copy post.md --theme w011 --code-theme github-dark`],
-    ],
-  })
+      let html: string
+      try {
+        html = buildWeChatInlineHtml(markdown, {
+          theme: options.theme ?? config.theme,
+          primaryColor: config.primaryColor,
+          fontFamily: config.fontFamily,
+          fontSize: config.fontSize,
+          customCSS: config.customCSS,
+          codeTheme: resolveCodeTheme(config, options.codeTheme),
+        })
+      }
+      catch (error) {
+        ui.error(error instanceof Error ? error.message : String(error))
+        process.exitCode = 1
+        return
+      }
 
-  file = Option.String({ required: true })
-
-  theme = Option.String(`--theme,-t`, {
-    description: `免费主题名（默认取配置）`,
-  })
-
-  codeTheme = Option.String(`--code-theme`, {
-    description: `highlight.js 代码高亮主题，默认 github-dark，none 关闭`,
-  })
-
-  async execute(): Promise<number> {
-    installDom()
-
-    const { config } = await loadWelightConfig()
-    const markdown = await readInput(this.file)
-
-    let html: string
-    try {
-      html = buildWeChatInlineHtml(markdown, {
-        theme: this.theme ?? config.theme,
-        primaryColor: config.primaryColor,
-        fontFamily: config.fontFamily,
-        fontSize: config.fontSize,
-        customCSS: config.customCSS,
-        codeTheme: resolveCodeTheme(config, this.codeTheme),
-      })
-    }
-    catch (error) {
-      this.context.stderr.write(`错误：${error instanceof Error ? error.message : String(error)}\n`)
-      return 1
-    }
-
-    const plain = htmlToPlainText(html)
-    const result = await copyRichHtml(html, plain)
-    if (!result.html) {
-      this.context.stderr.write(`警告：未能写入 HTML 格式，仅写入了纯文本。\n`)
-    }
-    this.context.stdout.write(`已复制到剪贴板，请粘贴到公众号后台编辑器。\n`)
-    return 0
-  }
+      const result = await copyRichHtml(html, htmlToPlainText(html))
+      if (!result.html)
+        ui.warn(`未能写入 HTML 格式，仅写入了纯文本`)
+      ui.success(`已复制到剪贴板，请粘贴到公众号后台编辑器`)
+    })
 }

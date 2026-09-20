@@ -160,6 +160,16 @@ export async function chatCompletionStream(
       throw new Error(data?.error?.message || `模型接口 HTTP ${response.status}`)
     }
 
+    // 兜底：部分兼容服务端忽略 stream 参数，直接返回普通 JSON
+    const contentType = response.headers.get(`content-type`) ?? ``
+    if (!contentType.includes(`text/event-stream`)) {
+      const data = await response.json().catch(() => null) as ChatResponse | null
+      const message = data?.choices?.[0]?.message ?? { role: `assistant` as const, content: `` }
+      if (typeof message.content === `string` && message.content)
+        onDelta(message.content)
+      return message
+    }
+
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     const message: ChatMessage = { role: `assistant`, content: `` }

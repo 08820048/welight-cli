@@ -1,131 +1,121 @@
 import process from 'node:process'
-import { Command, Option } from 'clipanion'
+import type { Command } from 'commander'
 import { loadWelightConfig, resolveModelSettings, resolveTypesafeEndpoint } from '../config'
 import { TITLE_GENERATOR_PROMPT } from '../engine'
 import { readInput } from '../io'
 import { chatCompletion, parseTitleList } from '../modelClient'
 import { scoreTitles } from '../titleScore'
+import { c, ui } from '../ui'
 
 const DEFAULT_COUNT = 5
 
-export class TitleCommand extends Command {
-  static paths = [[`title`]]
-
-  static usage = Command.Usage({
-    description: `为文章生成候选标题（BYOK 模型）`,
-    details: `
-      使用与桌面端一致的「爆款标题」提示词，调用你自己配置的 OpenAI 兼容模型生成候选标题。
-      需要 WELIGHT_MODEL_API_KEY / WELIGHT_MODEL_BASE_URL / WELIGHT_MODEL，
-      或用 --api-key / --base-url / --model 传入。
-
-      可传 Markdown 文件，或用 --topic 直接给一个主题。
-    `,
-    examples: [
-      [`为文章生成标题`, `$0 title post.md`],
-      [`按主题生成`, `$0 title --topic "如何用 Markdown 排版公众号" --count 8`],
-      [`JSON 输出`, `$0 title post.md --json`],
-    ],
-  })
-
-  file = Option.String({ required: false })
-
-  topic = Option.String(`--topic`, { description: `直接给定主题，替代文件内容` })
-
-  count = Option.String(`--count`, { description: `生成数量，默认 ${DEFAULT_COUNT}` })
-
-  model = Option.String(`--model`, { description: `模型名（默认读 WELIGHT_MODEL）` })
-
-  baseUrl = Option.String(`--base-url`, { description: `OpenAI 兼容接口地址（默认读 WELIGHT_MODEL_BASE_URL）` })
-
-  apiKey = Option.String(`--api-key`, { description: `模型 API Key（默认读 WELIGHT_MODEL_API_KEY）` })
-
-  json = Option.Boolean(`--json`, false, { description: `以 JSON 输出` })
-
-  score = Option.Boolean(`--score`, { description: `用 TypeSafe 判断层给候选标题打分排序（默认开启）` })
-
-  typesafeKey = Option.String(`--typesafe-key`, { description: `TypeSafe API Key（默认读 WELIGHT_TYPESAFE_KEY）` })
-
-  async execute(): Promise<number> {
-    const { config } = await loadWelightConfig()
-    const { apiKey, baseUrl, model } = resolveModelSettings(config, {
-      apiKey: this.apiKey,
-      baseUrl: this.baseUrl,
-      model: this.model,
-    })
-    const scoreEnabled = this.score ?? true
-
-    let content = this.topic?.trim() ?? ``
-    if (!content) {
-      if (!this.file) {
-        this.context.stderr.write(`错误：请提供 Markdown 文件，或使用 --topic 指定主题。\n`)
-        return 1
-      }
-      content = await readInput(this.file)
-      if (!content.trim()) {
-        this.context.stderr.write(`错误：文件内容为空。\n`)
-        return 1
-      }
-    }
-
-    const countRaw = Number(this.count ?? DEFAULT_COUNT)
-    const count = Number.isFinite(countRaw) && countRaw > 0 ? Math.min(Math.floor(countRaw), 20) : DEFAULT_COUNT
-
-    let titles: string[] = []
-    try {
-      const raw = await chatCompletion({
-        baseUrl,
-        apiKey,
-        model,
-        messages: [
-          { role: `system`, content: TITLE_GENERATOR_PROMPT },
-          {
-            role: `user`,
-            content: `请根据以下内容创作 ${count} 个候选标题。只输出标题本身，每行一个，不要编号、不要解释、不要其他任何内容。\n\n---\n${content}`,
-          },
-        ],
+export function registerTitle(program: Command): void {
+  program
+    .command(`title`)
+    .description(`为文章生成候选标题（BYOK 模型，可选 TypeSafe 评分）`)
+    .argument(`[file]`, `Markdown 文件路径；也可用 --topic 直接给主题`)
+    .option(`--topic <text>`, `直接给定主题，替代文件内容`)
+    .option(`--count <n>`, `生成数量，默认 ${DEFAULT_COUNT}`)
+    .option(`--model <name>`, `模型名（默认读配置 / WELIGHT_MODEL）`)
+    .option(`--base-url <url>`, `OpenAI 兼容接口地址（默认读配置 / WELIGHT_MODEL_BASE_URL）`)
+    .option(`--api-key <key>`, `模型 API Key（默认读本地凭据 / WELIGHT_MODEL_API_KEY）`)
+    .option(`--json`, `以 JSON 输出`)
+    .option(`--score`, `用 TypeSafe 判断层给候选标题打分排序（默认开启）`)
+    .option(`--no-score`, `跳过标题评分`)
+    .option(`--typesafe-key <key>`, `TypeSafe API Key（默认读本地凭据 / WELIGHT_TYPESAFE_KEY）`)
+    .addHelpText(`after`, `\n示例:\n  $ welight title post.md --count 6\n  $ welight title --topic "如何用 Markdown 排版公众号"`)
+    .action(async (file: string | undefined, options: {
+      topic?: string
+      count?: string
+      model?: string
+      baseUrl?: string
+      apiKey?: string
+      json?: boolean
+      score?: boolean
+      typesafeKey?: string
+    }) => {
+      const { config } = await loadWelightConfig()
+      const settings = resolveModelSettings(config, {
+        apiKey: options.apiKey,
+        baseUrl: options.baseUrl,
+        model: options.model,
       })
-      titles = parseTitleList(raw)
-    }
-    catch (error) {
-      this.context.stderr.write(`错误：${error instanceof Error ? error.message : String(error)}\n`)
-      return 1
-    }
 
-    const typesafeKey = (this.typesafeKey ?? process.env.WELIGHT_TYPESAFE_KEY ?? ``).trim()
-    let scoreReport = null as Awaited<ReturnType<typeof scoreTitles>>
-    if (scoreEnabled && titles.length > 0) {
-      if (typesafeKey) {
-        scoreReport = await scoreTitles(titles, { apiKey: typesafeKey, endpoint: resolveTypesafeEndpoint(config) })
-        if (!scoreReport)
-          this.context.stderr.write(`· 判断层评分不可用，已返回未评分候选\n`)
+      let content = options.topic?.trim() ?? ``
+      if (!content) {
+        if (!file) {
+          ui.error(`请提供 Markdown 文件，或使用 --topic 指定主题。`)
+          process.exitCode = 1
+          return
+        }
+        content = await readInput(file)
+        if (!content.trim()) {
+          ui.error(`文件内容为空。`)
+          process.exitCode = 1
+          return
+        }
+      }
+
+      const countRaw = Number(options.count ?? DEFAULT_COUNT)
+      const count = Number.isFinite(countRaw) && countRaw > 0 ? Math.min(Math.floor(countRaw), 20) : DEFAULT_COUNT
+
+      let titles: string[] = []
+      try {
+        const raw = await chatCompletion({
+          baseUrl: settings.baseUrl,
+          apiKey: settings.apiKey,
+          model: settings.model,
+          messages: [
+            { role: `system`, content: TITLE_GENERATOR_PROMPT },
+            { role: `user`, content: `请根据以下内容创作 ${count} 个候选标题。只输出标题本身，每行一个，不要编号、不要解释、不要其他任何内容。\n\n---\n${content}` },
+          ],
+        })
+        titles = parseTitleList(raw)
+      }
+      catch (error) {
+        ui.error(error instanceof Error ? error.message : String(error))
+        process.exitCode = 1
+        return
+      }
+
+      const scoreEnabled = options.score ?? true
+      const typesafeKey = (options.typesafeKey ?? process.env.WELIGHT_TYPESAFE_KEY ?? ``).trim()
+      let scoreReport = null as Awaited<ReturnType<typeof scoreTitles>>
+      if (scoreEnabled && titles.length > 0) {
+        if (typesafeKey) {
+          scoreReport = await scoreTitles(titles, { apiKey: typesafeKey, endpoint: resolveTypesafeEndpoint(config) })
+          if (!scoreReport)
+            ui.warn(`判断层评分不可用，已返回未评分候选`)
+        }
+        else {
+          ui.warn(`未配置 TypeSafe Key，跳过标题评分`)
+        }
+      }
+
+      if (options.json) {
+        process.stdout.write(`${JSON.stringify({
+          titles,
+          scored: Boolean(scoreReport),
+          ranking: scoreReport?.ranking,
+          unscored: scoreReport?.unscored,
+          top: scoreReport?.top,
+          judgeModel: scoreReport?.model,
+          model: settings.model || undefined,
+        }, null, 2)}\n`)
+        return
+      }
+
+      ui.title(`候选标题`)
+      if (scoreReport) {
+        scoreReport.ranking.forEach((entry, index) => {
+          process.stdout.write(`  ${c.bold(String(index + 1).padStart(2))}. ${c.yellow(`[${entry.score?.toFixed(2)}]`)} ${entry.title}\n`)
+        })
+        if (scoreReport.unscored.length > 0)
+          process.stdout.write(`  ${ui.dim(`低置信未评分：${scoreReport.unscored.map(entry => entry.title).join(`；`)}`)}\n`)
       }
       else {
-        this.context.stderr.write(`· 未配置 WELIGHT_TYPESAFE_KEY，跳过标题评分\n`)
+        for (const title of titles)
+          process.stdout.write(`  · ${title}\n`)
       }
-    }
-
-    if (this.json) {
-      this.context.stdout.write(`${JSON.stringify({
-        titles,
-        scored: Boolean(scoreReport),
-        ranking: scoreReport?.ranking,
-        unscored: scoreReport?.unscored,
-        top: scoreReport?.top,
-        judgeModel: scoreReport?.model,
-        model: model || undefined,
-      }, null, 2)}\n`)
-    }
-    else if (scoreReport) {
-      const lines = scoreReport.ranking.map(
-        (entry, index) => `${index + 1}. [${entry.score?.toFixed(2)}] ${entry.title}`,
-      )
-      if (scoreReport.unscored.length > 0)
-        lines.push(`（低置信未评分：${scoreReport.unscored.map(entry => entry.title).join(`；`)}）`)
-      this.context.stdout.write(`${lines.join(`\n`)}\n`)
-    }
-    else {
-      this.context.stdout.write(`${titles.join(`\n`)}\n`)
-    }
-    return 0
-  }
+    })
 }

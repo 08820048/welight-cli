@@ -1,46 +1,60 @@
-import { Builtins, Cli } from 'clipanion'
+import { Command } from 'commander'
 import { VERSION } from './version'
 import { loadCredentials } from './credentials'
-import { CopyCommand } from './commands/copy'
-import { AiCommand, SetupCommand } from './commands/ai'
-import { ConfigCommand } from './commands/config'
-import { DetectCommand } from './commands/detect'
-import { DoctorCommand } from './commands/doctor'
-import { InitCommand } from './commands/init'
-import { LintCommand } from './commands/lint'
-import { PublishCommand } from './commands/publish'
-import { RenderCommand } from './commands/render'
-import { ThemesCommand } from './commands/themes'
-import { TitleCommand } from './commands/title'
+import { registerAi, registerSetup } from './commands/ai'
+import { registerConfig } from './commands/config'
+import { registerCopy } from './commands/copy'
+import { registerDetect } from './commands/detect'
+import { registerDoctor } from './commands/doctor'
+import { registerInit } from './commands/init'
+import { registerLint } from './commands/lint'
+import { registerPublish } from './commands/publish'
+import { registerRender } from './commands/render'
+import { registerThemes } from './commands/themes'
+import { registerTitle } from './commands/title'
+import { c } from './ui'
 
-export function createCli(): Cli {
-  const cli = new Cli({
-    binaryLabel: `Welight CLI`,
-    binaryName: `welight`,
-    binaryVersion: VERSION,
-  })
+export function createCli(): Command {
+  const program = new Command()
 
-  cli.register(RenderCommand)
-  cli.register(CopyCommand)
-  cli.register(PublishCommand)
-  cli.register(LintCommand)
-  cli.register(DetectCommand)
-  cli.register(TitleCommand)
-  cli.register(AiCommand)
-  cli.register(SetupCommand)
-  cli.register(ThemesCommand)
-  cli.register(DoctorCommand)
-  cli.register(InitCommand)
-  cli.register(ConfigCommand)
+  program
+    .name(`welight`)
+    .description(`Welight CLI — 微信公众号 Markdown 排版与发布工具（免费开源，全部 BYOK）`)
+    .version(VERSION, `-v, --version`, `输出版本号`)
+    .showHelpAfterError(`（使用 --help 查看用法）`)
 
-  cli.register(Builtins.HelpCommand)
-  cli.register(Builtins.VersionCommand)
+  registerRender(program)
+  registerCopy(program)
+  registerPublish(program)
+  registerLint(program)
+  registerDetect(program)
+  registerTitle(program)
+  registerAi(program)
+  registerSetup(program)
+  registerThemes(program)
+  registerDoctor(program)
+  registerInit(program)
+  registerConfig(program)
 
-  return cli
+  program.addHelpText(
+    `after`,
+    [
+      ``,
+      `${c.bold(`快速开始`)}`,
+      `  ${c.dim(`$`)} welight render post.md --theme w011 --out out.html   ${c.dim(`渲染预览`)}`,
+      `  ${c.dim(`$`)} welight copy post.md                                 ${c.dim(`复制到公众号`)}`,
+      `  ${c.dim(`$`)} welight lint post.md                                 ${c.dim(`发布前规则检查`)}`,
+      `  ${c.dim(`$`)} welight setup                                       ${c.dim(`对话式配置助手`)}`,
+      ``,
+      `${c.dim(`文档: https://github.com/08820048/welight-cli`)}`,
+    ].join(`\n`),
+  )
+
+  return program
 }
 
 export async function run(argv: string[]): Promise<void> {
   loadCredentials()
-  const cli = createCli()
-  await cli.runExit(argv, Cli.defaultContext)
+  const program = createCli()
+  await program.parseAsync(argv)
 }
