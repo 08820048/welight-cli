@@ -10,6 +10,7 @@ import { p } from '../present'
 import { askSelect, isInteractive } from '../prompt'
 import { readInput } from '../io'
 import { renderDocument } from '../render'
+import { rememberTheme, resolveArticleTheme } from '../themeMemory'
 import { c, ui } from '../ui'
 
 function defaultOutputPath(file: string): string {
@@ -36,15 +37,17 @@ export function registerRender(program: Command): void {
       const { config } = await loadWelightConfig()
 
       let theme = (options.theme ?? ``).trim()
+      const remembered = resolveArticleTheme(config, file)
       if (!theme) {
         if (isInteractive()) {
           theme = (await askSelect(
             `选择主题`,
             themeOptions.map(option => ({ value: option.value, label: option.label, hint: option.desc })),
-          )) ?? config.theme
+            remembered.theme,
+          )) ?? remembered.theme
         }
         else {
-          theme = config.theme
+          theme = remembered.theme
         }
       }
 
@@ -70,6 +73,9 @@ export function registerRender(program: Command): void {
         process.stdout.write(html)
         return
       }
+
+      // 记住本篇预览用的主题，publish / copy 默认复用（预览什么发什么）
+      rememberTheme(file, theme)
 
       const outPath = options.out ? path.resolve(options.out) : defaultOutputPath(file)
       await fs.writeFile(outPath, html, `utf8`)

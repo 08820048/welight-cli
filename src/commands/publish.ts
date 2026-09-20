@@ -7,7 +7,8 @@ import { readInput } from '../io'
 import { kvLines, note, presentCommand } from '../present'
 import type { PublishResult } from '../publish'
 import { publishDraft } from '../publish'
-import { printKeyValues, ui } from '../ui'
+import { resolveArticleTheme } from '../themeMemory'
+import { c, printKeyValues, ui } from '../ui'
 
 interface PublishCliOptions {
   theme?: string
@@ -61,13 +62,14 @@ export function registerPublish(program: Command): void {
       const { config } = await loadWelightConfig()
       const markdown = await readInput(file)
       const baseDir = file === `-` ? process.cwd() : path.dirname(path.resolve(file))
+      const { theme, fromMemory } = resolveArticleTheme(config, file, options.theme)
 
       await presentCommand<PublishResult>({
         spinner: `发布中…`,
         run: progress => publishDraft(markdown, {
           baseDir,
           credentials: { appId, appSecret, proxy: resolveProxy(config, options.proxy) },
-          theme: options.theme ?? config.theme,
+          theme,
           primaryColor: config.primaryColor,
           fontFamily: config.fontFamily,
           fontSize: config.fontSize,
@@ -86,6 +88,7 @@ export function registerPublish(program: Command): void {
         }),
         view: data => note(`草稿创建成功`, kvLines([
           [`标题`, data.title],
+          [`主题`, `${theme}${fromMemory ? `（沿用预览主题）` : ``}`],
           [`media_id`, data.mediaId],
           [`正文图片`, `${data.uploadedContentImageCount}/${data.contentImageCount} 已上传`],
           [`预览链接`, data.previewUrl || `未获取（可在公众号后台草稿箱查看）`],
@@ -94,6 +97,7 @@ export function registerPublish(program: Command): void {
           ui.success(`草稿创建成功`)
           printKeyValues([
             [`标题`, data.title],
+            [`主题`, `${theme}${fromMemory ? `（沿用预览主题）` : ``}`],
             [`media_id`, data.mediaId],
             [`正文图片`, `${data.uploadedContentImageCount}/${data.contentImageCount} 已上传`],
             [`预览链接`, data.previewUrl || `未获取（可在公众号后台草稿箱查看）`],

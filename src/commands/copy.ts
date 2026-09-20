@@ -5,6 +5,7 @@ import { loadWelightConfig, resolveCodeTheme } from '../config'
 import { installDom } from '../dom'
 import { readInput } from '../io'
 import { p, presentCommand } from '../present'
+import { resolveArticleTheme } from '../themeMemory'
 import { ui } from '../ui'
 import { buildWeChatInlineHtml, htmlToPlainText } from '../wechat'
 
@@ -23,13 +24,14 @@ export function registerCopy(program: Command): void {
     .action(async (file: string, options: { theme?: string, codeTheme?: string }) => {
       installDom()
       const { config } = await loadWelightConfig()
+      const { theme, fromMemory } = resolveArticleTheme(config, file, options.theme)
 
       const data = await presentCommand<CopyData>({
         spinner: `生成并写入剪贴板…`,
         run: async () => {
           const markdown = await readInput(file)
           const html = buildWeChatInlineHtml(markdown, {
-            theme: options.theme ?? config.theme,
+            theme,
             primaryColor: config.primaryColor,
             fontFamily: config.fontFamily,
             fontSize: config.fontSize,
@@ -41,6 +43,8 @@ export function registerCopy(program: Command): void {
         },
         view: (result) => {
           p.log.success(`已复制到剪贴板，请粘贴到公众号后台编辑器`)
+          if (fromMemory)
+            p.log.info(`沿用预览主题：${theme}`)
           if (!result.html)
             p.log.warn(`未能写入 HTML 格式，仅写入了纯文本`)
         },

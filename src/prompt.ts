@@ -41,10 +41,11 @@ export interface SelectOption {
 }
 
 /** 单选；取消返回 null */
-export async function askSelect(message: string, options: SelectOption[]): Promise<string | null> {
+export async function askSelect(message: string, options: SelectOption[], initialValue?: string): Promise<string | null> {
   const value = await p.select({
     message,
     options: options.map(option => ({ value: option.value, label: option.label, hint: option.hint })),
+    initialValue,
   })
   if (p.isCancel(value))
     return null
