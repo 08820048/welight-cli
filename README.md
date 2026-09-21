@@ -246,18 +246,24 @@ AI 回复在终端下会**渲染 Markdown**（标题/粗体/列表/代码块带�
 
 ## Shell 补全
 
-安装后 `wl` 后按 Tab 可联想子命令、选项与枚举值（主题 / 提供商 / 档位 / 凭据名等）：
+`wl` 后按 Tab 可联想子命令、选项与枚举值（主题 / 提供商 / 档位 / 凭据名等）：
 
 ```bash
 # bash
- eval "$(wl completion bash)"              # 可写入 ~/.bashrc
+eval "$(wl completion bash)"              # 可写入 ~/.bashrc
 # zsh
- wl completion zsh > "${fpath[1]}/_wl"    # 然后重开终端
+eval "$(wl completion zsh)"               # 写入 ~/.zshrc（oh-my-zsh 之后）
 # fish
- wl completion fish | source
+wl completion fish | source
 ```
 
-补全由隐藏命令 `wl __complete` 提供，无需额外依赖。
+**行内联想（输入时浅色候选，→ 采用）**：属于 shell 行编辑器能力，CLI 通过 `wl __complete` 提供候选数据。
+
+- **zsh**：装 [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions) 并设 `ZSH_AUTOSUGGEST_STRATEGY=(completion history)`（`completion` 策略会用上面的补全候选）
+- **fish**：原生支持（候选来自补全）
+- **bash**：需 [ble.sh](https://github.com/akinomyoga/ble.sh)
+
+补全与联想均由隐藏命令 `wl __complete` 提供，无需额外依赖。
 
 ## 开发
 

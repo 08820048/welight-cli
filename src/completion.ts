@@ -90,10 +90,6 @@ export function completeSuggestions(program: Command, words: string[]): string[]
       for (const alias of sub.aliases())
         candidates.add(alias)
     }
-    for (const option of command.options) {
-      if (option.long)
-        candidates.add(option.long)
-    }
   }
 
   return [...candidates].filter(value => value.startsWith(current) && value !== current).sort()
