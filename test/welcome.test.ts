@@ -27,6 +27,7 @@ describe(`启动页`, () => {
       expect(output).toContain(`chat`)
       expect(output).toContain(`Welight CLI`)
       expect(output).toContain(`v0.0.1`)
+      expect(output).toContain(`welight.fyi`)
     })
   })
 

@@ -5,9 +5,10 @@
 
 import process from 'node:process'
 import type { Command } from 'commander'
+import { link } from './hyperlink'
 import { c } from './ui'
 
-const ANSI_RE = /\u001B\[[0-9;]*[A-Za-z]/g
+const ANSI_RE = /\u001B\[[0-9;]*[A-Za-z]|\u001B\]8;;[^\u0007\u001B]*(?:\u0007|\u001B\\)/g
 /** 近似双宽字符（CJK / 全角） */
 const WIDE_RE = /[\u1100-\u115F\u2E80-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6\u3000-\u303F]/
 
@@ -78,6 +79,8 @@ function leftColumn(program: Command, descWidth: number): string[] {
 }
 
 function rightColumn(version: string): string[] {
+  const repo = link(` github.com/08820048/welight-cli`, `https://github.com/08820048/welight-cli`)
+  const site = link(` 桌面版：https://welight.fyi`, `https://welight.fyi`)
   return [
     ...LOGO.map(line => c.cyan(line)),
     ``,
@@ -85,7 +88,8 @@ function rightColumn(version: string): string[] {
     c.dim(` 微信公众号 Markdown 排版与发布`),
     c.dim(` 免费开源 · 全部 BYOK`),
     ``,
-    c.dim(` github.com/08820048/welight-cli`),
+    c.dim(repo),
+    c.dim(site),
   ]
 }
 
