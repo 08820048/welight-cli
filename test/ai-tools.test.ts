@@ -39,6 +39,7 @@ describe(`ai 工具集`, () => {
       `get_config_status`,
       `layout_article`,
       `list_themes`,
+      `publish_draft`,
       `render_article`,
       `render_document`,
       `save_config`,

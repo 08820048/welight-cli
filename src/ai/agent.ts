@@ -5,6 +5,7 @@
 
 import type { ChatMessage, ToolDef } from '../modelClient'
 import { chatCompletionMessage, chatCompletionStream } from '../modelClient'
+import process from 'node:process'
 import type { AgentContext } from './tools'
 import { AI_TOOLS } from './tools'
 
@@ -19,7 +20,8 @@ const SYSTEM_PROMPT = `你是 Welight CLI 的中文写作与配置助手，帮�
 - article_checkup：对当前文章做 12 项体检（需 WELIGHT_TYPESAFE_KEY）；
 - render_article：用指定主题渲染并保存公众号内联 HTML；
 - render_document：用指定主题渲染并保存独立 HTML（浏览器预览）；
-- score_titles：给候选标题按打开潜力评分排序。
+- score_titles：给候选标题按打开潜力评分排序；
+- publish_draft：把当前文章创建为公众号草稿（执行前工具会请用户确认）。
 
 配置相关工具：
 - get_config_status：查看当前配置与各凭据是否已配置（配置前先调用）；
@@ -30,12 +32,16 @@ const SYSTEM_PROMPT = `你是 Welight CLI 的中文写作与配置助手，帮�
 - 先判断是否需要工具；不需要就直接回答，不要为了用工具而用工具。
 - 工具结果是线索而非结论，请结合语境给出建议，不要武断判定违规。
 - 严禁要求用户把密钥直接粘贴到对话里；需要密钥时一律调用 store_secret，由本地安全输入。
-- 不能直接发布文章；如需发布请告知用户使用 welight publish 命令。
+- 不能直接正式发布文章；如需创建公众号草稿，调用 publish_draft（工具会请用户确认）。发布前若缺少公众号凭据，应引导用户运行 welight auth set wechat-app-id / wechat-app-secret。
 - 输出使用简体中文，直接给出可用结果，避免空泛套话。`
 
 export interface AgentSessionOptions {
   /** 当前文章正文（Markdown），可为空 */
   content: string
+  /** 相对图片路径的基准目录 */
+  baseDir?: string
+  /** 当前使用的主题（发布时默认） */
+  theme?: string
   baseUrl: string
   apiKey: string
   model: string
@@ -44,6 +50,8 @@ export interface AgentSessionOptions {
   onEvent?: (message: string) => void
   /** 交互模式下的安全密钥输入回调 */
   requestSecret?: (name: string, label: string) => Promise<string | null>
+  /** 交互模式下的确认回调（发布等有副作用的操作） */
+  confirm?: (message: string) => Promise<boolean>
 }
 
 export interface AgentOptions extends AgentSessionOptions {
@@ -101,7 +109,10 @@ export class AgentSession {
   private async runLoop(onDelta?: (text: string) => void): Promise<string> {
     const context: AgentContext = {
       content: this.content,
+      baseDir: this.options.baseDir ?? process.cwd(),
+      theme: this.options.theme ?? ``,
       requestSecret: this.options.requestSecret,
+      confirm: this.options.confirm,
     }
     const maxSteps = this.options.maxSteps ?? 6
 

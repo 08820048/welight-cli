@@ -230,8 +230,8 @@ AI 回复在终端下会**渲染 Markdown**（标题/粗体/列表/代码块带�
 `ai` 是 CLI 自建的轻量 Agent（不依赖桌面端运行时）：
 
 - `welight ai "指令" --file post.md`，结果可 `--out` 写回文件、`--json` 输出；
-- 模型可按需调用 12 个工具：写作类 `check_wechat_rules`、`detect_ai_text`、`list_themes`、`article_stats`、`layout_article`、`article_checkup`、`render_article`、`render_document`、`score_titles`；配置类 `get_config_status`、`save_config`、`store_secret`；
-- 发布等有副作用的操作**不**放进工具循环，避免模型误触发；需要发布请用 `welight publish`。
+- 模型可按需调用 13 个工具：写作类 `check_wechat_rules`、`detect_ai_text`、`list_themes`、`article_stats`、`layout_article`、`article_checkup`、`render_article`、`render_document`、`score_titles`、`publish_draft`；配置类 `get_config_status`、`save_config`、`store_secret`；
+- `publish_draft`（创建公众号草稿）**执行前会弹本地确认**，用户同意后才真正发布，避免模型误触发；也可直接用 `welight publish` 命令。
 - 默认**实时流式 + Markdown 渲染**（回复随生成实时重绘，带标题/加粗/列表/代码块样式）；`--stream` 可切回原始 Markdown 流；工具进度输出到 stderr，便于管道组合。
 
 交互对话（`welight chat`）与单轮 `welight ai` 均使用 clack UI，AI 回复角色显示为 **WelightAI**。

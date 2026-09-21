@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises'
+import path from 'node:path'
 import process from 'node:process'
 import type { Command } from 'commander'
 import { AgentSession, runAgent } from '../ai/agent'
@@ -8,7 +9,8 @@ import { readInput } from '../io'
 import { assistantLabel, LiveMarkdown } from '../live'
 import { markdownToAnsi } from '../markdown/ansi'
 import { p } from '../present'
-import { askPassword, isInteractive, promptInput } from '../prompt'
+import { askConfirm, askPassword, isInteractive, promptInput } from '../prompt'
+import { resolveArticleTheme } from '../themeMemory'
 import { c, ui } from '../ui'
 
 interface AiOptions {
@@ -82,13 +84,21 @@ async function runChat(settings: ResolvedSettings, file?: string): Promise<void>
 
   let spinner: ReturnType<typeof p.spinner> | null = null
 
+  const { config } = await loadWelightConfig()
+  const filePath = file && file !== `-` ? file : ``
+  const baseDir = filePath ? path.dirname(path.resolve(filePath)) : process.cwd()
+  const theme = resolveArticleTheme(config, filePath || `-`).theme
+
   const session = new AgentSession({
     content: file ? await readInput(file) : ``,
+    baseDir,
+    theme,
     baseUrl: settings.baseUrl,
     apiKey: settings.apiKey,
     model: settings.model,
     maxSteps: settings.maxSteps,
     onEvent: message => spinner?.message(`${message}…`),
+    confirm: async (message: string) => askConfirm(message),
     requestSecret: async (_name: string, label: string) => {
       spinner?.stop(`需要一项配置`)
       spinner = null
@@ -153,6 +163,11 @@ async function runOnce(prompt: string, options: AiOptions, settings: ResolvedSet
   const renderMarkdown = !explicitStream && !options.json && !options.out && isInteractive()
   const shouldStream = explicitStream && !options.out && !options.json
 
+  const { config } = await loadWelightConfig()
+  const filePath = options.file && options.file !== `-` ? options.file : ``
+  const baseDir = filePath ? path.dirname(path.resolve(filePath)) : process.cwd()
+  const theme = resolveArticleTheme(config, filePath || `-`).theme
+
   const live = { current: null as LiveMarkdown | null }
   const spinner = renderMarkdown ? p.spinner() : null
   spinner?.start(`WelightAI 正在处理…`)
@@ -163,11 +178,14 @@ async function runOnce(prompt: string, options: AiOptions, settings: ResolvedSet
     result = await runAgent({
       prompt,
       content,
+      baseDir,
+      theme,
       baseUrl: settings.baseUrl,
       apiKey: settings.apiKey,
       model: settings.model,
       maxSteps: settings.maxSteps,
       onEvent: message => spinner?.message(`${message}…`),
+      confirm: isInteractive() ? async (message: string) => askConfirm(message) : undefined,
       requestSecret: isInteractive() ? async (_name, label) => askPassword(label) : undefined,
       onDelta: shouldStream
         ? (text) => {

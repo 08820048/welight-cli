@@ -1,21 +1,22 @@
 /**
  * `welight ai` 可调用的 CLI 原生工具（不依赖 GUI）。
  *
- * 只提供只读/产物类能力；发布等有副作用的操作不放进模型工具循环，
- * 避免模型误触发。
+ * 大多数为只读/产物类能力；发布草稿（publish_draft）有副作用，
+ * 执行前会通过 ctx.confirm 请用户在本地确认，避免模型误触发。
  */
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 import readingTime from 'reading-time'
-import { loadWelightConfig, missingModelConfig, resolveModelSettings, resolveTypesafeEndpoint, saveConfigValues } from '../config'
+import { loadWelightConfig, missingModelConfig, resolveModelSettings, resolveProxy, resolveTypesafeEndpoint, saveConfigValues } from '../config'
 import { CREDENTIAL_SPECS, credentialStatus, isCredentialName, saveCredential } from '../credentials'
 import { runCheckup } from '../checkup'
 import { runLayout } from '../layout'
 import { scanWechatRules } from '../engine'
 import type { ZhuqueDetectReport } from '../engine'
 import { themeOptions } from '../engine'
+import { inferTitle, publishDraft } from '../publish'
 import { renderDocument } from '../render'
 import { RULES_DATA, RULES_VERSION } from '../rulesData'
 import { scoreTitles } from '../titleScore'
@@ -25,8 +26,14 @@ import { aiRatio, detectAiText } from '../zhuqueApi'
 export interface AgentContext {
   /** 当前文章正文（Markdown） */
   content: string
+  /** 相对图片路径的基准目录，默认当前工作目录 */
+  baseDir?: string
+  /** 当前使用的主题（发布时默认），缺省取配置 */
+  theme?: string
   /** 交互模式下的安全密钥输入回调（值不会进入模型上下文） */
   requestSecret?: (name: string, label: string) => Promise<string | null>
+  /** 交互模式下的确认回调（用于发布等有副作用的操作） */
+  confirm?: (message: string) => Promise<boolean>
 }
 
 export interface AiTool {
@@ -342,6 +349,67 @@ const storeSecretTool: AiTool = {
   },
 }
 
+/** 发布到公众号草稿（有副作用，执行前必须用户确认） */
+const publishDraftTool: AiTool = {
+  name: `publish_draft`,
+  description: `把当前文章（或指定内容）创建为微信公众号草稿。这会在用户公众号后台创建草稿（非正式发布）。执行前会请用户本地确认。需要公众号凭据。`,
+  parameters: {
+    type: `object`,
+    properties: {
+      title: { type: `string`, description: `草稿标题，缺省根据正文推断` },
+      content: { type: `string`, description: `要发布的正文 Markdown，缺省使用当前文章` },
+      cover: { type: `string`, description: `封面图路径或 URL，缺省用正文首图` },
+      theme: { type: `string`, description: `主题名，缺省用当前主题` },
+      watermark: { type: `boolean`, description: `是否追加文末水印，缺省取配置` },
+      preview: { type: `boolean`, description: `是否获取草稿预览链接，默认 true` },
+    },
+    additionalProperties: false,
+  },
+  async run(args, ctx) {
+    const content = typeof args.content === `string` && args.content.trim() ? args.content : ctx.content
+    if (!content.trim())
+      return `当前没有可发布的文章内容。`
+
+    const appId = (process.env.WELIGHT_WECHAT_APP_ID ?? ``).trim()
+    const appSecret = (process.env.WELIGHT_WECHAT_APP_SECRET ?? ``).trim()
+    if (!appId || !appSecret)
+      return `缺少公众号凭据。请让用户运行 welight auth set wechat-app-id 与 welight auth set wechat-app-secret（或 welight setup）。`
+
+    const title = typeof args.title === `string` && args.title.trim() ? args.title.trim() : inferTitle(content, `未命名文章`)
+
+    if (!ctx.confirm)
+      return `当前环境无法确认发布操作，已取消。请让用户在交互式终端运行 welight chat 后再发布。`
+    const ok = await ctx.confirm(`即将创建公众号草稿「${title}」，是否继续？`)
+    if (!ok)
+      return `用户取消了发布。`
+
+    try {
+      const { config } = await loadWelightConfig()
+      const theme = typeof args.theme === `string` && args.theme.trim() ? args.theme.trim() : (ctx.theme || config.theme)
+      const result = await publishDraft(content, {
+        baseDir: ctx.baseDir ?? process.cwd(),
+        credentials: { appId, appSecret, proxy: resolveProxy(config) },
+        theme,
+        primaryColor: config.primaryColor,
+        fontFamily: config.fontFamily,
+        fontSize: config.fontSize,
+        customCSS: config.customCSS,
+        codeTheme: config.codeTheme,
+        title,
+        cover: typeof args.cover === `string` && args.cover.trim() ? args.cover.trim() : undefined,
+        watermark: typeof args.watermark === `boolean` ? args.watermark : config.watermark,
+        preview: args.preview === false ? false : true,
+        onLog: () => {},
+      })
+      const preview = result.previewUrl ? `，预览链接：${result.previewUrl}` : `（未获取到预览链接，可在公众号后台草稿箱查看）`
+      return `草稿创建成功：标题「${result.title}」，media_id=${result.mediaId}${preview}`
+    }
+    catch (error) {
+      return `发布失败：${error instanceof Error ? error.message : String(error)}`
+    }
+  },
+}
+
 export const AI_TOOLS: AiTool[] = [
   checkRulesTool,
   detectAiTextTool,
@@ -352,6 +420,7 @@ export const AI_TOOLS: AiTool[] = [
   scoreTitlesTool,
   layoutArticleTool,
   articleCheckupTool,
+  publishDraftTool,
   getConfigStatusTool,
   saveConfigTool,
   storeSecretTool,
