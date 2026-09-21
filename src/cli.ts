@@ -1,6 +1,7 @@
 import { Command } from 'commander'
 import { VERSION } from './version'
 import { loadCredentials } from './credentials'
+import { printWelcome } from './welcome'
 import { registerAi, registerChat } from './commands/ai'
 import { registerAuth } from './commands/auth'
 import { registerConfig } from './commands/config'
@@ -73,5 +74,12 @@ export function createCli(): Command {
 export async function run(argv: string[]): Promise<void> {
   loadCredentials()
   const program = createCli()
+
+  // 无子命令：展示启动页
+  if (argv.slice(2).length === 0) {
+    printWelcome(program, VERSION)
+    return
+  }
+
   await program.parseAsync(argv)
 }
