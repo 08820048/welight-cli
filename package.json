@@ -1,6 +1,6 @@
 {
   "name": "welight",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Welight CLI —— 微信公众号 Markdown 排版与发布命令行工具（免费开源，全部 BYOK）",
   "type": "module",
   "bin": {
@@ -17,7 +17,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=22.16.0"
+    "node": ">=20.19.5"
   },
   "license": "MIT",
   "author": "Welight",
@@ -52,12 +52,12 @@
     "@clack/prompts": "^1.8.1",
     "@crosscopy/clipboard": "^0.3.6",
     "c12": "^2.0.4",
-    "commander": "^15.0.0",
+    "commander": "^13.1.0",
     "fflate": "^0.8.2",
     "front-matter": "^4.0.2",
     "highlight.js": "^11.11.1",
-    "isomorphic-dompurify": "^3.18.0",
-    "juice": "^12.1.1",
+    "isomorphic-dompurify": "^2.36.0",
+    "juice": "^11.1.1",
     "linkedom": "^0.18.13",
     "marked": "^17.0.1",
     "mermaid": "^11.16.1",

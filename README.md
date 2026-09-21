@@ -31,7 +31,7 @@ npx welight --help
 pnpm dlx welight --help
 ```
 
-要求 Node.js `>=22.16.0`。命令 `welight` 与 `wl` 等效。
+要求 Node.js `>=20.19.5`。命令 `welight` 与 `wl` 等效；若系统已有其他 `wl` 命令，安装后可能需要调整 PATH 优先级。
 
 ## 快速开始
 
