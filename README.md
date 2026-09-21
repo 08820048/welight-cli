@@ -183,6 +183,7 @@ auth 名：`model` `typesafe` `zhuque` `wechat-app-id` `wechat-app-secret`（也
 | `welight themes` | 列出可用的免费主题 |
 | `welight doctor` | 检查运行环境、配置与密钥状态 |
 | `welight config [get\|set\|unset]` | 查看或修改配置 |
+| `welight completion <shell>` | 输出 bash/zsh/fish 补全脚本 |
 | `welight init` | 生成 `welight.config.json` 配置模板 |
 
 文件参数传 `-` 表示从 stdin 读取。
@@ -240,6 +241,21 @@ AI 回复在终端下会**渲染 Markdown**（标题/粗体/列表/代码块带�
 
 - 非敏感项（主题、代码高亮、水印、微信代理、模型接口/模型名、lint 阈值）由 `save_config` 写入 `welight.config.json`；
 - **密钥由 CLI 在本地安全输入**（不回显、不发送给模型），保存到本地凭据文件（见下），模型只会收到“已保存”。
+
+## Shell 补全
+
+安装后 `wl` 后按 Tab 可联想子命令、选项与枚举值（主题 / 提供商 / 档位 / 凭据名等）：
+
+```bash
+# bash
+ eval "$(wl completion bash)"              # 可写入 ~/.bashrc
+# zsh
+ wl completion zsh > "${fpath[1]}/_wl"    # 然后重开终端
+# fish
+ wl completion fish | source
+```
+
+补全由隐藏命令 `wl __complete` 提供，无需额外依赖。
 
 ## 开发
 

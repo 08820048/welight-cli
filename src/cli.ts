@@ -5,6 +5,7 @@ import { registerAi, registerChat } from './commands/ai'
 import { registerAuth } from './commands/auth'
 import { registerConfig } from './commands/config'
 import { registerCheckup } from './commands/checkup'
+import { registerCompletion } from './commands/completion'
 import { registerCopy } from './commands/copy'
 import { registerDetect } from './commands/detect'
 import { registerDoctor } from './commands/doctor'
@@ -45,6 +46,7 @@ export function createCli(): Command {
   registerConfig(program)
   registerAuth(program)
   registerModel(program)
+  registerCompletion(program)
 
   program.addHelpText(
     `after`,
