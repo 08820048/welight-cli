@@ -2,6 +2,11 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.0.2] - 2026-09-21
+
+- 启用 npm Trusted Publishing（OIDC）自动发布：`release.yml` 使用 Node 24（npm ≥ 11.5.1），打 tag 即自动发布并生成 provenance
+- 完善发布前检查与 README 安装/兼容性说明
+
 ## [0.0.1] - 2026-09-21
 
 首个公开版本（免费开源，全部 BYOK）。
