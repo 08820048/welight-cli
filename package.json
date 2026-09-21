@@ -30,8 +30,7 @@
     "url": "https://github.com/08820048/welight-cli/issues"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "keywords": [
     "wechat",
