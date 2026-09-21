@@ -13,16 +13,25 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "engines": {
     "node": ">=22.16.0"
   },
   "license": "MIT",
+  "author": "Welight",
   "homepage": "https://github.com/08820048/welight-cli",
   "repository": {
     "type": "git",
     "url": "https://github.com/08820048/welight-cli"
+  },
+  "bugs": {
+    "url": "https://github.com/08820048/welight-cli/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "keywords": [
     "wechat",
@@ -37,7 +46,7 @@
     "dev": "tsx src/index.ts",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run type-check && npm test && npm run build"
   },
   "dependencies": {
     "@clack/prompts": "^1.8.1",
