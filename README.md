@@ -188,6 +188,8 @@ auth 名：`model` `typesafe` `zhuque` `wechat-app-id` `wechat-app-secret`（也
 
 文件参数传 `-` 表示从 stdin 读取。
 
+直接运行 `wl`（无子命令）会进入**交互式命令选择器**：选命令 → 补必填参数 → 直接执行（适合不记得命令/参数时）。非交互环境则输出 help。
+
 `render` 的默认行为：**选主题 → 写 HTML 文件 → 在浏览器打开预览**（终端不刷 HTML）。
 用 `--stdout` 或管道输出时则输出原始 HTML，便于 `> out.html` 重定向；`--out` 指定路径；`--no-open` 不自动打开浏览器。
 
