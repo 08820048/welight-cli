@@ -5,6 +5,7 @@ import { AgentSession, runAgent } from '../ai/agent'
 import { loadWelightConfig, resolveModelSettings } from '../config'
 import { installDom } from '../dom'
 import { readInput } from '../io'
+import { assistantLabel, LiveMarkdown } from '../live'
 import { markdownToAnsi } from '../markdown/ansi'
 import { p } from '../present'
 import { askPassword, isInteractive, promptInput } from '../prompt'
@@ -53,7 +54,7 @@ function missingMessage(settings: ResolvedSettings): string {
   return `模型配置不完整，缺少：${settings.missing.join(`、`)}。\n运行 welight model 或 welight setup 补全。`
 }
 
-/** 交互式配置/写作对话（clack） */
+/** 交互式配置/写作对话（clack；实时流式 + Markdown 渲染） */
 async function runChat(settings: ResolvedSettings, file?: string): Promise<void> {
   if (settings.missing.length > 0) {
     ui.error(missingMessage(settings))
@@ -66,7 +67,7 @@ async function runChat(settings: ResolvedSettings, file?: string): Promise<void>
     return
   }
 
-  p.intro(c.bgCyan(c.black(` Welight AI 助手 `)))
+  p.intro(c.bgCyan(c.black(` Welight AI `)))
   p.note(
     [
       `用自然语言让我帮你配置或写作，例如：`,
@@ -108,16 +109,30 @@ async function runChat(settings: ResolvedSettings, file?: string): Promise<void>
     if (file)
       session.setContent(await readInput(file))
 
+    const live = { current: null as LiveMarkdown | null }
     spinner = p.spinner()
-    spinner.start(`AI 正在处理…`)
+    spinner.start(`WelightAI 正在处理…`)
     try {
-      const reply = await session.send(input)
-      spinner.stop(`AI`)
+      const reply = await session.send(input, (delta) => {
+        if (!live.current) {
+          spinner?.clear()
+          spinner = null
+          live.current = new LiveMarkdown()
+        }
+        live.current.append(delta)
+      })
+      if (live.current) {
+        live.current.finish()
+      }
+      else {
+        spinner?.stop(assistantLabel())
+        process.stdout.write(`${markdownToAnsi(reply || `（空回复）`)}\n\n`)
+      }
       spinner = null
-      process.stdout.write(`${markdownToAnsi(reply || `（空回复）`)}\n\n`)
     }
     catch (error) {
-      spinner?.stop(`出错`)
+      live.current?.finish()
+      spinner?.clear()
       spinner = null
       p.log.error(error instanceof Error ? error.message : String(error))
     }
@@ -138,10 +153,12 @@ async function runOnce(prompt: string, options: AiOptions, settings: ResolvedSet
   const renderMarkdown = !explicitStream && !options.json && !options.out && isInteractive()
   const shouldStream = explicitStream && !options.out && !options.json
 
+  const live = { current: null as LiveMarkdown | null }
+  const spinner = renderMarkdown ? p.spinner() : null
+  spinner?.start(`WelightAI 正在处理…`)
+
   let result: string
   let streamed = false
-  const spinner = renderMarkdown ? p.spinner() : null
-  spinner?.start(`AI 正在处理…`)
   try {
     result = await runAgent({
       prompt,
@@ -150,23 +167,31 @@ async function runOnce(prompt: string, options: AiOptions, settings: ResolvedSet
       apiKey: settings.apiKey,
       model: settings.model,
       maxSteps: settings.maxSteps,
-      onEvent: message => spinner ? spinner.message(`${message}…`) : ui.info(message),
+      onEvent: message => spinner?.message(`${message}…`),
       requestSecret: isInteractive() ? async (_name, label) => askPassword(label) : undefined,
       onDelta: shouldStream
         ? (text) => {
             streamed = true
             process.stdout.write(text)
           }
-        : undefined,
+        : renderMarkdown
+          ? (text) => {
+              if (!live.current) {
+                spinner?.clear()
+                live.current = new LiveMarkdown()
+              }
+              live.current.append(text)
+            }
+          : undefined,
     })
   }
   catch (error) {
-    spinner?.stop(`出错`)
+    live.current?.finish()
+    spinner?.clear()
     ui.error(error instanceof Error ? error.message : String(error))
     process.exitCode = 1
     return
   }
-  spinner?.stop(`AI`)
 
   if (shouldStream) {
     if (streamed)
@@ -185,9 +210,16 @@ async function runOnce(prompt: string, options: AiOptions, settings: ResolvedSet
     return
   }
   if (renderMarkdown) {
-    process.stdout.write(`${markdownToAnsi(result)}\n`)
+    if (live.current) {
+      live.current.finish()
+    }
+    else {
+      spinner?.stop(assistantLabel())
+      process.stdout.write(`${markdownToAnsi(result || `（空回复）`)}\n`)
+    }
     return
   }
+  spinner?.stop(assistantLabel())
   process.stdout.write(result.endsWith(`\n`) ? result : `${result}\n`)
 }
 
@@ -199,8 +231,6 @@ const commonAiOptions = (command: Command): Command =>
     .option(`--base-url <url>`, `OpenAI 兼容接口地址（默认读配置 / WELIGHT_MODEL_BASE_URL）`)
     .option(`--api-key <key>`, `模型 API Key（默认读本地凭据 / WELIGHT_MODEL_API_KEY）`)
     .option(`--max-steps <n>`, `最大工具调用步数，默认 6`)
-    .option(`--stream`, `流式输出（原始 Markdown，不渲染）`)
-    .option(`--json`, `以 JSON 输出`)
 
 export function registerAi(program: Command): void {
   commonAiOptions(
@@ -208,9 +238,11 @@ export function registerAi(program: Command): void {
       .command(`ai`)
       .description(`Welight AI：写作助手 + 配置助手（BYOK 模型 + CLI 工具）`)
       .argument(`[prompt]`, `指令；配合 --chat 可省略`)
-      .option(`--chat`, `进入多轮对话（配置助手 / 连续创作）`),
+      .option(`--chat`, `进入多轮对话（等价 welight chat）`)
+      .option(`--stream`, `流式输出原始 Markdown（不渲染）`)
+      .option(`--json`, `以 JSON 输出`),
   )
-    .addHelpText(`after`, `\n示例:\n  $ welight ai "帮我润色这篇文章" --file post.md\n  $ welight ai --chat\n  $ welight ai "用简约档排版" --file post.md`)
+    .addHelpText(`after`, `\n示例:\n  $ welight ai "帮我润色这篇文章" --file post.md\n  $ welight chat\n  $ welight ai "用简约档排版" --file post.md`)
     .action(async (prompt: string | undefined, options: AiOptions) => {
       installDom()
       const settings = await resolveAiSettings(options)
@@ -220,10 +252,24 @@ export function registerAi(program: Command): void {
         return
       }
       if (!prompt) {
-        ui.error(`请提供指令，或使用 --chat 进入对话模式。`)
+        ui.error(`请提供指令，或使用 welight chat 进入对话模式。`)
         process.exitCode = 1
         return
       }
       await runOnce(prompt, options, settings)
+    })
+}
+
+export function registerChat(program: Command): void {
+  commonAiOptions(
+    program
+      .command(`chat`)
+      .description(`打开 Welight AI 对话（写作 / 配置助手）`),
+  )
+    .addHelpText(`after`, `\n示例:\n  $ welight chat\n  $ welight chat --file post.md`)
+    .action(async (options: AiOptions) => {
+      installDom()
+      const settings = await resolveAiSettings(options)
+      await runChat(settings, options.file)
     })
 }

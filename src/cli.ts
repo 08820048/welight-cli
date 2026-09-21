@@ -1,7 +1,7 @@
 import { Command } from 'commander'
 import { VERSION } from './version'
 import { loadCredentials } from './credentials'
-import { registerAi } from './commands/ai'
+import { registerAi, registerChat } from './commands/ai'
 import { registerAuth } from './commands/auth'
 import { registerConfig } from './commands/config'
 import { registerCheckup } from './commands/checkup'
@@ -37,6 +37,7 @@ export function createCli(): Command {
   registerDetect(program)
   registerTitle(program)
   registerAi(program)
+  registerChat(program)
   registerSetup(program)
   registerThemes(program)
   registerDoctor(program)
@@ -51,6 +52,7 @@ export function createCli(): Command {
       ``,
       `${c.bold(`快速开始`)}`,
       `  ${c.dim(`$`)} welight setup                                     ${c.dim(`配置向导（模型 / 密钥）`)}`,
+      `  ${c.dim(`$`)} welight chat                                      ${c.dim(`AI 对话助手`)}`,
       `  ${c.dim(`$`)} welight render post.md --theme w011 --out out.html   ${c.dim(`渲染预览`)}`,
       `  ${c.dim(`$`)} welight layout post.md --in-place                   ${c.dim(`一键排版`)}`,
       `  ${c.dim(`$`)} welight copy post.md                                 ${c.dim(`复制到公众号`)}`,

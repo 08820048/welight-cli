@@ -176,6 +176,7 @@ auth 名：`model` `typesafe` `zhuque` `wechat-app-id` `wechat-app-secret`（也
 | `welight checkup <file>` | 文章体检：12 项量化检查（需 `WELIGHT_TYPESAFE_KEY`） |
 | `welight title <file>` | 生成候选标题（BYOK 模型），也可用 `--topic` 直接给主题 |
 | `welight ai <prompt>` | 写作助手对话，带文章上下文，可按需调用工具 |
+| `welight chat` | 打开 Welight AI 对话（等价 `welight ai --chat`） |
 | `welight setup` | 配置向导：逐步完成模型 / 朱雀 / TypeSafe / 公众号等配置（无需 AI） |
 | `welight model` | 配置模型（选提供商 → 选模型 → 填密钥） |
 | `welight auth <list\|set\|remove>` | 管理本地凭据（密钥） |
@@ -231,9 +232,11 @@ AI 回复在终端下会**渲染 Markdown**（标题/粗体/列表/代码块带�
 - `welight ai "指令" --file post.md`，结果可 `--out` 写回文件、`--json` 输出；
 - 模型可按需调用 12 个工具：写作类 `check_wechat_rules`、`detect_ai_text`、`list_themes`、`article_stats`、`layout_article`、`article_checkup`、`render_article`、`render_document`、`score_titles`；配置类 `get_config_status`、`save_config`、`store_secret`；
 - 发布等有副作用的操作**不**放进工具循环，避免模型误触发；需要发布请用 `welight publish`。
-- 默认**流式输出**（`--stream`，`--json` / `--out` 时自动关闭）；工具进度输出到 stderr，正文结果走 stdout，便于管道组合。
+- 默认**实时流式 + Markdown 渲染**（回复随生成实时重绘，带标题/加粗/列表/代码块样式）；`--stream` 可切回原始 Markdown 流；工具进度输出到 stderr，便于管道组合。
 
-`welight ai --chat` 是多轮对话助手，可以在对话里直接帮你改配置：
+交互对话（`welight chat`）与单轮 `welight ai` 均使用 clack UI，AI 回复角色显示为 **WelightAI**。
+
+`welight chat`（等价 `welight ai --chat`）是多轮对话助手，可以在对话里直接帮你改配置：
 
 - 非敏感项（主题、代码高亮、水印、微信代理、模型接口/模型名、lint 阈值）由 `save_config` 写入 `welight.config.json`；
 - **密钥由 CLI 在本地安全输入**（不回显、不发送给模型），保存到本地凭据文件（见下），模型只会收到“已保存”。
