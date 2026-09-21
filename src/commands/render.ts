@@ -7,7 +7,7 @@ import { loadWelightConfig } from '../config'
 import { installDom } from '../dom'
 import { themeOptions } from '../engine'
 import { p } from '../present'
-import { askSelect, isInteractive } from '../prompt'
+import { askAutocomplete, isInteractive } from '../prompt'
 import { readInput } from '../io'
 import { renderDocument } from '../render'
 import { rememberTheme, resolveArticleTheme } from '../themeMemory'
@@ -40,9 +40,9 @@ export function registerRender(program: Command): void {
       const remembered = resolveArticleTheme(config, file)
       if (!theme) {
         if (isInteractive()) {
-          theme = (await askSelect(
-            `选择主题`,
-            themeOptions.map(option => ({ value: option.value, label: option.label, hint: option.desc })),
+          theme = (await askAutocomplete(
+            `选择主题（可输入关键词过滤）`,
+            themeOptions.map(option => ({ value: option.value, label: `${option.value} ${option.label}`, hint: option.desc })),
             remembered.theme,
           )) ?? remembered.theme
         }

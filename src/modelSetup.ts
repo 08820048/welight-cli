@@ -13,7 +13,7 @@
 import process from 'node:process'
 import { loadWelightConfig, saveConfigValues } from './config'
 import { saveCredential } from './credentials'
-import { askPassword, askSelect, askText } from './prompt'
+import { askAutocomplete, askPassword, askText } from './prompt'
 import { findServiceOption, providerLabel, serviceOptions } from './modelPresets'
 import { isInteractive } from './prompt'
 import { c, ui } from './ui'
@@ -46,8 +46,8 @@ export async function configureModel(input: ModelInput = {}, options: { onlyMiss
     && (!onlyMissing ? true : (!existingProvider && !existingBaseUrl))
 
   if (needPickProvider) {
-    const picked = await askSelect(
-      `选择模型提供商`,
+    const picked = await askAutocomplete(
+      `选择模型提供商（可输入关键词过滤）`,
       serviceOptions.map(option => ({
         value: option.value,
         label: option.label,
@@ -66,7 +66,7 @@ export async function configureModel(input: ModelInput = {}, options: { onlyMiss
       if (interactive && (!onlyMissing || !existingModel)) {
         const modelOptions = preset.models.map(name => ({ label: name, value: name }))
         modelOptions.push({ label: `自定义模型名…`, value: `__custom__` })
-        const picked = await askSelect(`选择模型`, modelOptions)
+        const picked = await askAutocomplete(`选择模型（可输入关键词过滤）`, modelOptions)
         model = picked === `__custom__` ? ((await askText(`模型名`)) ?? ``).trim() : (picked ?? ``)
       }      else {
         model = existingModel || preset.models[0] || ``

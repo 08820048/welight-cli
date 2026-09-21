@@ -52,6 +52,18 @@ export async function askSelect(message: string, options: SelectOption[], initia
   return String(value)
 }
 
+/** 可搜索单选（输入关键词过滤）；取消返回 null */
+export async function askAutocomplete(message: string, options: SelectOption[], initialValue?: string): Promise<string | null> {
+  const value = await p.autocomplete({
+    message,
+    options: options.map(option => ({ value: option.value, label: option.label, hint: option.hint })),
+    initialValue,
+  })
+  if (p.isCancel(value))
+    return null
+  return String(value)
+}
+
 /** 兼容旧调用名 */
 export const promptInput = askText
 export const promptSecret = askPassword

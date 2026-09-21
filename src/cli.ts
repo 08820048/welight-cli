@@ -1,8 +1,6 @@
 import { Command } from 'commander'
 import { VERSION } from './version'
 import { loadCredentials } from './credentials'
-import { runLauncher } from './launcher'
-import { isInteractive } from './prompt'
 import { registerAi, registerChat } from './commands/ai'
 import { registerAuth } from './commands/auth'
 import { registerConfig } from './commands/config'
@@ -75,17 +73,5 @@ export function createCli(): Command {
 export async function run(argv: string[]): Promise<void> {
   loadCredentials()
   const program = createCli()
-
-  // 无子命令：交互下用选择器启动，非交互输出 help
-  const userArgs = argv.slice(2)
-  if (userArgs.length === 0) {
-    if (isInteractive()) {
-      await runLauncher(program)
-      return
-    }
-    program.outputHelp()
-    return
-  }
-
   await program.parseAsync(argv)
 }
